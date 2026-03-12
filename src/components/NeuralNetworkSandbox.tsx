@@ -7,7 +7,7 @@ interface Neuron {
   x: number;
   y: number;
   value: number;
-  rawValue: number; // before activation
+  rawValue: number;
   layerIndex: number;
   neuronIndex: number;
 }
@@ -16,7 +16,7 @@ interface Connection {
   from: Neuron;
   to: Neuron;
   weight: number;
-  signal: number; // the weighted value flowing through
+  signal: number;
 }
 
 interface SignalParticle {
@@ -30,7 +30,6 @@ interface SignalParticle {
 
 type ActivationFn = "relu" | "sigmoid" | "tanh";
 
-// --- Activation functions ---
 function activate(x: number, fn: ActivationFn): number {
   switch (fn) {
     case "relu": return Math.max(0, x);
@@ -42,8 +41,14 @@ function activate(x: number, fn: ActivationFn): number {
 // --- Main Component ---
 export function NeuralNetworkSandbox() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
   const particlesRef = useRef<SignalParticle[]>([]);
+
+  // View transform (pan & zoom)
+  const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 1 });
+  const dragRef = useRef({ isDragging: false, lastX: 0, lastY: 0 });
+  const [viewState, setViewState] = useState({ offsetX: 0, offsetY: 0, zoom: 1 });
 
   const [layerConfig, setLayerConfig] = useState<number[]>([2, 4, 3, 1]);
   const [activationFn, setActivationFn] = useState<ActivationFn>("relu");
@@ -55,10 +60,8 @@ export function NeuralNetworkSandbox() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
-  const [selectedConnection, setSelectedConnection] = useState<{ layer: number; from: number; to: number } | null>(null);
   const [hoveredNeuron, setHoveredNeuron] = useState<{ layer: number; index: number } | null>(null);
 
-  // Initialize weights randomly
   const initializeWeights = useCallback((layers: number[]) => {
     const w: number[][][] = [];
     const b: number[][] = [];
@@ -75,27 +78,31 @@ export function NeuralNetworkSandbox() {
     setBiases(b);
   }, []);
 
-  // Forward pass to compute neuron values
+  // Compute neuron positions in a fixed "world" coordinate space
+  // The network is laid out in a world space of worldW x worldH,
+  // then the view transform maps it to screen.
   const computeForward = useCallback(() => {
     if (weights.length === 0) return;
+
+    const PADDING = 60;
+    const NEURON_SPACING_Y = 80;
+    const LAYER_SPACING_X = 160;
+
+    const maxNeurons = Math.max(...layerConfig);
+    const numLayers = layerConfig.length;
+    const worldW = (numLayers + 1) * LAYER_SPACING_X;
+    const worldH = (maxNeurons + 1) * NEURON_SPACING_Y;
 
     const allNeurons: Neuron[][] = [];
     const allConnections: Connection[] = [];
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const numLayers = layerConfig.length;
-    const layerSpacing = width / (numLayers + 1);
-
-    // Create input neurons
+    // Input neurons
     const inputNeurons: Neuron[] = inputs.map((val, i) => {
-      const neuronSpacing = height / (inputs.length + 1);
+      const layerH = (inputs.length - 1) * NEURON_SPACING_Y;
+      const startY = (worldH - layerH) / 2;
       return {
-        x: layerSpacing,
-        y: neuronSpacing * (i + 1),
+        x: LAYER_SPACING_X,
+        y: startY + i * NEURON_SPACING_Y,
         value: val,
         rawValue: val,
         layerIndex: 0,
@@ -106,11 +113,11 @@ export function NeuralNetworkSandbox() {
 
     let currentValues = [...inputs];
 
-    // Compute each layer
     for (let l = 0; l < weights.length; l++) {
       const layerSize = layerConfig[l + 1];
-      const neuronSpacing = height / (layerSize + 1);
-      const x = layerSpacing * (l + 2);
+      const layerH = (layerSize - 1) * NEURON_SPACING_Y;
+      const startY = (worldH - layerH) / 2;
+      const x = LAYER_SPACING_X * (l + 2);
       const isLast = l === weights.length - 1;
       const actFn = isLast ? outputActivation : activationFn;
 
@@ -118,13 +125,14 @@ export function NeuralNetworkSandbox() {
       const newValues: number[] = [];
 
       for (let j = 0; j < layerSize; j++) {
+        const ny = startY + j * NEURON_SPACING_Y;
         let sum = biases[l]?.[j] ?? 0;
         for (let i = 0; i < currentValues.length; i++) {
           const w = weights[l]?.[j]?.[i] ?? 0;
           const signal = currentValues[i] * w;
           allConnections.push({
             from: allNeurons[l][i],
-            to: { x, y: neuronSpacing * (j + 1), value: 0, rawValue: 0, layerIndex: l + 1, neuronIndex: j },
+            to: { x, y: ny, value: 0, rawValue: 0, layerIndex: l + 1, neuronIndex: j },
             weight: w,
             signal,
           });
@@ -134,7 +142,7 @@ export function NeuralNetworkSandbox() {
         const activated = activate(sum, actFn);
         const neuron: Neuron = {
           x,
-          y: neuronSpacing * (j + 1),
+          y: ny,
           value: activated,
           rawValue: sum,
           layerIndex: l + 1,
@@ -147,17 +155,13 @@ export function NeuralNetworkSandbox() {
       allNeurons.push(layerNeurons);
       currentValues = newValues;
 
-      // Update connection "to" references
-      const connStart = allConnections.length - layerSize * (allNeurons[l].length);
+      // Fix connection "to" references
+      const connStart = allConnections.length - layerSize * allNeurons[l].length;
       for (let ci = connStart; ci < allConnections.length; ci++) {
         if (ci >= 0) {
           const conn = allConnections[ci];
-          const targetNeuron = layerNeurons.find(
-            (n) => n.neuronIndex === conn.to.neuronIndex
-          );
-          if (targetNeuron) {
-            conn.to = targetNeuron;
-          }
+          const targetNeuron = layerNeurons.find(n => n.neuronIndex === conn.to.neuronIndex);
+          if (targetNeuron) conn.to = targetNeuron;
         }
       }
     }
@@ -166,7 +170,40 @@ export function NeuralNetworkSandbox() {
     setConnections(allConnections);
   }, [inputs, weights, biases, layerConfig, activationFn, outputActivation]);
 
-  // Initialize on mount and when config changes
+  // Fit the view so the entire network is visible
+  const fitToView = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || neurons.length === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const cw = rect.width;
+    const ch = rect.height;
+
+    // Find bounding box of all neurons
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const layer of neurons) {
+      for (const n of layer) {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x);
+        maxY = Math.max(maxY, n.y);
+      }
+    }
+
+    const PAD = 50;
+    minX -= PAD; minY -= PAD; maxX += PAD; maxY += PAD;
+    const netW = maxX - minX;
+    const netH = maxY - minY;
+
+    const zoom = Math.min(cw / netW, ch / netH, 2);
+    const offsetX = (cw - netW * zoom) / 2 - minX * zoom;
+    const offsetY = (ch - netH * zoom) / 2 - minY * zoom;
+
+    viewRef.current = { offsetX, offsetY, zoom };
+    setViewState({ offsetX, offsetY, zoom });
+  }, [neurons]);
+
+  // Init
   useEffect(() => {
     setInputs(Array.from({ length: layerConfig[0] }, () => parseFloat((Math.random() * 2 - 1).toFixed(2))));
     initializeWeights(layerConfig);
@@ -176,12 +213,14 @@ export function NeuralNetworkSandbox() {
     computeForward();
   }, [computeForward]);
 
-  // Trigger animation
+  // Auto-fit after neurons are computed
+  useEffect(() => {
+    if (neurons.length > 0) fitToView();
+  }, [neurons, fitToView]);
+
   const triggerAnimation = useCallback(() => {
     setIsAnimating(true);
     particlesRef.current = [];
-
-    // Create particles for each connection staggered by layer
     connections.forEach((conn) => {
       const layerDelay = conn.from.layerIndex * 0.3;
       particlesRef.current.push({
@@ -195,42 +234,57 @@ export function NeuralNetworkSandbox() {
     });
   }, [connections]);
 
-  // Canvas rendering
+  // --- Canvas rendering with pan/zoom ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    let resizeObserver: ResizeObserver | null = null;
+
     const resizeCanvas = () => {
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resizeCanvas();
 
+    resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    resizeObserver.observe(canvas);
+
     const draw = () => {
       const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      const cw = rect.width;
+      const ch = rect.height;
+      ctx.clearRect(0, 0, cw, ch);
+
+      const { offsetX, offsetY, zoom } = viewRef.current;
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(zoom, zoom);
 
       // Draw connections
       connections.forEach((conn) => {
         const absWeight = Math.abs(conn.weight);
         const opacity = Math.min(0.8, absWeight * 0.8 + 0.1);
         const isPositive = conn.weight >= 0;
-
         ctx.beginPath();
         ctx.moveTo(conn.from.x, conn.from.y);
         ctx.lineTo(conn.to.x, conn.to.y);
         ctx.strokeStyle = isPositive
           ? `rgba(99, 102, 241, ${opacity})`
           : `rgba(244, 114, 182, ${opacity})`;
-        ctx.lineWidth = Math.max(0.5, absWeight * 2.5);
+        ctx.lineWidth = Math.max(0.5, absWeight * 2.5) / zoom;
         ctx.stroke();
       });
 
-      // Draw signal particles
+      // Signal particles
       if (isAnimating) {
         let anyActive = false;
         particlesRef.current.forEach((p) => {
@@ -240,23 +294,19 @@ export function NeuralNetworkSandbox() {
             const x = p.fromX + (p.toX - p.fromX) * p.progress;
             const y = p.fromY + (p.toY - p.fromY) * p.progress;
             const absVal = Math.min(1, Math.abs(p.value));
-            const radius = 3 + absVal * 4;
-
+            const radius = (3 + absVal * 4) / zoom;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
-            const color = p.value >= 0
+            ctx.fillStyle = p.value >= 0
               ? `rgba(34, 211, 238, ${0.6 + absVal * 0.4})`
               : `rgba(244, 114, 182, ${0.6 + absVal * 0.4})`;
-            ctx.fillStyle = color;
             ctx.fill();
-
-            // Glow effect
+            // Glow
             ctx.beginPath();
             ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-            const glow = p.value >= 0
+            ctx.fillStyle = p.value >= 0
               ? `rgba(34, 211, 238, ${0.15 + absVal * 0.1})`
               : `rgba(244, 114, 182, ${0.15 + absVal * 0.1})`;
-            ctx.fillStyle = glow;
             ctx.fill();
           } else if (p.progress < 1) {
             anyActive = true;
@@ -274,11 +324,10 @@ export function NeuralNetworkSandbox() {
           const isHovered =
             hoveredNeuron?.layer === neuron.layerIndex &&
             hoveredNeuron?.index === neuron.neuronIndex;
-
           const absVal = Math.min(1, Math.abs(neuron.value));
           const radius = isHovered ? 22 : 18;
 
-          // Outer glow
+          // Glow
           if (absVal > 0.1) {
             ctx.beginPath();
             ctx.arc(neuron.x, neuron.y, radius + 8, 0, Math.PI * 2);
@@ -286,15 +335,9 @@ export function NeuralNetworkSandbox() {
             ctx.fill();
           }
 
-          // Neuron circle
           ctx.beginPath();
           ctx.arc(neuron.x, neuron.y, radius, 0, Math.PI * 2);
-
-          const gradient = ctx.createRadialGradient(
-            neuron.x, neuron.y, 0,
-            neuron.x, neuron.y, radius
-          );
-
+          const gradient = ctx.createRadialGradient(neuron.x, neuron.y, 0, neuron.x, neuron.y, radius);
           if (neuron.value > 0) {
             gradient.addColorStop(0, `rgba(99, 102, 241, ${0.3 + absVal * 0.7})`);
             gradient.addColorStop(1, `rgba(99, 102, 241, ${0.1 + absVal * 0.3})`);
@@ -302,70 +345,117 @@ export function NeuralNetworkSandbox() {
             gradient.addColorStop(0, `rgba(244, 114, 182, ${0.3 + absVal * 0.5})`);
             gradient.addColorStop(1, `rgba(58, 58, 92, 0.8)`);
           }
-
           ctx.fillStyle = gradient;
           ctx.fill();
           ctx.strokeStyle = isHovered ? "rgba(129, 140, 248, 0.8)" : "rgba(99, 102, 241, 0.4)";
-          ctx.lineWidth = isHovered ? 2 : 1;
+          ctx.lineWidth = (isHovered ? 2 : 1) / zoom;
           ctx.stroke();
 
           // Value text
           ctx.fillStyle = "rgba(224, 224, 232, 0.9)";
-          ctx.font = "11px monospace";
+          ctx.font = `${11 / zoom}px monospace`;
+          // Keep text readable: use a minimum font size
+          const fontSize = Math.max(10, Math.min(14, 11 / zoom));
+          ctx.font = `${fontSize}px monospace`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText(neuron.value.toFixed(2), neuron.x, neuron.y);
         });
       });
 
-      // Draw layer labels
+      // Layer labels
       const layerLabels = layerConfig.map((_, i) => {
         if (i === 0) return "輸入層";
         if (i === layerConfig.length - 1) return "輸出層";
         return `隱藏層 ${i}`;
       });
-
       neurons.forEach((layer, i) => {
         if (layer.length > 0) {
-          ctx.fillStyle = "rgba(224, 224, 232, 0.4)";
-          ctx.font = "12px sans-serif";
+          // Position label above the topmost neuron
+          const topY = Math.min(...layer.map(n => n.y));
+          ctx.fillStyle = "rgba(224, 224, 232, 0.5)";
+          const labelFontSize = Math.max(10, Math.min(14, 12 / zoom));
+          ctx.font = `${labelFontSize}px sans-serif`;
           ctx.textAlign = "center";
-          ctx.fillText(layerLabels[i], layer[0].x, 20);
+          ctx.fillText(layerLabels[i], layer[0].x, topY - 30);
         }
       });
+
+      ctx.restore();
+
+      // Draw zoom indicator (in screen space)
+      ctx.fillStyle = "rgba(224, 224, 232, 0.3)";
+      ctx.font = "11px monospace";
+      ctx.textAlign = "right";
+      ctx.fillText(`${Math.round(zoom * 100)}%`, cw - 12, ch - 12);
 
       animationRef.current = requestAnimationFrame(draw);
     };
 
     draw();
 
-    const handleResize = () => {
-      resizeCanvas();
-      computeForward();
-    };
-    window.addEventListener("resize", handleResize);
-
     return () => {
       cancelAnimationFrame(animationRef.current);
-      window.removeEventListener("resize", handleResize);
+      if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [neurons, connections, isAnimating, animationSpeed, hoveredNeuron, layerConfig, computeForward]);
+  }, [neurons, connections, isAnimating, animationSpeed, hoveredNeuron, layerConfig]);
 
-  // Handle canvas mouse interaction
-  const handleCanvasMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+  // --- Mouse event handlers for pan, zoom, hover ---
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const { offsetX, offsetY, zoom } = viewRef.current;
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const newZoom = Math.min(5, Math.max(0.1, zoom * zoomFactor));
+
+      // Zoom towards mouse position
+      const newOffsetX = mouseX - (mouseX - offsetX) * (newZoom / zoom);
+      const newOffsetY = mouseY - (mouseY - offsetY) * (newZoom / zoom);
+
+      viewRef.current = { offsetX: newOffsetX, offsetY: newOffsetY, zoom: newZoom };
+      setViewState({ offsetX: newOffsetX, offsetY: newOffsetY, zoom: newZoom });
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      // Middle button or left button
+      dragRef.current = { isDragging: true, lastX: e.clientX, lastY: e.clientY };
+      canvas.style.cursor = "grabbing";
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (dragRef.current.isDragging) {
+        const dx = e.clientX - dragRef.current.lastX;
+        const dy = e.clientY - dragRef.current.lastY;
+        dragRef.current.lastX = e.clientX;
+        dragRef.current.lastY = e.clientY;
+        viewRef.current.offsetX += dx;
+        viewRef.current.offsetY += dy;
+        setViewState({ ...viewRef.current });
+        return;
+      }
+
+      // Hover detection: convert screen coords to world coords
+      const { offsetX, offsetY, zoom } = viewRef.current;
+      const worldX = (mouseX - offsetX) / zoom;
+      const worldY = (mouseY - offsetY) / zoom;
 
       let found = false;
       for (const layer of neurons) {
         for (const neuron of layer) {
-          const dx = x - neuron.x / window.devicePixelRatio;
-          const dy = y - neuron.y / window.devicePixelRatio;
-          if (Math.sqrt(dx * dx + dy * dy) < 25) {
+          const dx = worldX - neuron.x;
+          const dy = worldY - neuron.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 24) {
             setHoveredNeuron({ layer: neuron.layerIndex, index: neuron.neuronIndex });
             found = true;
             break;
@@ -374,9 +464,105 @@ export function NeuralNetworkSandbox() {
         if (found) break;
       }
       if (!found) setHoveredNeuron(null);
-    },
-    [neurons]
-  );
+
+      if (!dragRef.current.isDragging) {
+        canvas.style.cursor = found ? "pointer" : "grab";
+      }
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current.isDragging = false;
+      canvas.style.cursor = "grab";
+    };
+
+    const handleMouseLeave = () => {
+      dragRef.current.isDragging = false;
+      canvas.style.cursor = "grab";
+      setHoveredNeuron(null);
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mouseleave", handleMouseLeave);
+
+    // Touch support for mobile
+    let lastTouchDist = 0;
+    let lastTouchCenter = { x: 0, y: 0 };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        dragRef.current = { isDragging: true, lastX: e.touches[0].clientX, lastY: e.touches[0].clientY };
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+        lastTouchCenter = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && dragRef.current.isDragging) {
+        const dx = e.touches[0].clientX - dragRef.current.lastX;
+        const dy = e.touches[0].clientY - dragRef.current.lastY;
+        dragRef.current.lastX = e.touches[0].clientX;
+        dragRef.current.lastY = e.touches[0].clientY;
+        viewRef.current.offsetX += dx;
+        viewRef.current.offsetY += dy;
+        setViewState({ ...viewRef.current });
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const center = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+
+        if (lastTouchDist > 0) {
+          const rect = canvas.getBoundingClientRect();
+          const mouseX = center.x - rect.left;
+          const mouseY = center.y - rect.top;
+          const { offsetX, offsetY, zoom } = viewRef.current;
+          const scaleFactor = dist / lastTouchDist;
+          const newZoom = Math.min(5, Math.max(0.1, zoom * scaleFactor));
+          viewRef.current = {
+            offsetX: mouseX - (mouseX - offsetX) * (newZoom / zoom),
+            offsetY: mouseY - (mouseY - offsetY) * (newZoom / zoom),
+            zoom: newZoom,
+          };
+          setViewState({ ...viewRef.current });
+        }
+        lastTouchDist = dist;
+        lastTouchCenter = center;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      dragRef.current.isDragging = false;
+      lastTouchDist = 0;
+    };
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [neurons]);
 
   const addLayer = () => {
     if (layerConfig.length >= 6) return;
@@ -412,14 +598,68 @@ export function NeuralNetworkSandbox() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
       {/* Canvas */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+      <div ref={containerRef} className="relative rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
         <canvas
           ref={canvasRef}
           className="w-full"
-          style={{ height: "500px" }}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseLeave={() => setHoveredNeuron(null)}
+          style={{ height: "560px", cursor: "grab" }}
         />
+        {/* Overlay controls */}
+        <div className="absolute top-3 right-3 flex gap-1">
+          <button
+            onClick={fitToView}
+            className="px-2 py-1 text-xs rounded-md bg-[var(--surface-light)]/80 backdrop-blur text-[var(--foreground)]/60 hover:text-[var(--foreground)] border border-[var(--border)] transition-colors"
+            title="適應畫面"
+          >
+            適應畫面
+          </button>
+          <button
+            onClick={() => {
+              const { offsetX, offsetY, zoom } = viewRef.current;
+              const newZoom = Math.min(5, zoom * 1.3);
+              const canvas = canvasRef.current;
+              if (!canvas) return;
+              const rect = canvas.getBoundingClientRect();
+              const cx = rect.width / 2;
+              const cy = rect.height / 2;
+              viewRef.current = {
+                offsetX: cx - (cx - offsetX) * (newZoom / zoom),
+                offsetY: cy - (cy - offsetY) * (newZoom / zoom),
+                zoom: newZoom,
+              };
+              setViewState({ ...viewRef.current });
+            }}
+            className="px-2 py-1 text-xs rounded-md bg-[var(--surface-light)]/80 backdrop-blur text-[var(--foreground)]/60 hover:text-[var(--foreground)] border border-[var(--border)] transition-colors"
+            title="放大"
+          >
+            +
+          </button>
+          <button
+            onClick={() => {
+              const { offsetX, offsetY, zoom } = viewRef.current;
+              const newZoom = Math.max(0.1, zoom / 1.3);
+              const canvas = canvasRef.current;
+              if (!canvas) return;
+              const rect = canvas.getBoundingClientRect();
+              const cx = rect.width / 2;
+              const cy = rect.height / 2;
+              viewRef.current = {
+                offsetX: cx - (cx - offsetX) * (newZoom / zoom),
+                offsetY: cy - (cy - offsetY) * (newZoom / zoom),
+                zoom: newZoom,
+              };
+              setViewState({ ...viewRef.current });
+            }}
+            className="px-2 py-1 text-xs rounded-md bg-[var(--surface-light)]/80 backdrop-blur text-[var(--foreground)]/60 hover:text-[var(--foreground)] border border-[var(--border)] transition-colors"
+            title="縮小"
+          >
+            -
+          </button>
+        </div>
+        {/* Hint */}
+        <div className="absolute bottom-3 left-3 text-[10px] text-[var(--foreground)]/30 pointer-events-none">
+          拖曳移動 · 滾輪縮放
+        </div>
       </div>
 
       {/* Control Panel */}
@@ -603,7 +843,7 @@ export function NeuralNetworkSandbox() {
               <span>負值訊號粒子</span>
             </div>
             <p className="mt-2 leading-relaxed">
-              連線粗細代表權重大小。神經元的亮度代表激活值的強度。點擊「傳遞訊號」可看到資料在網路中流動的動畫。
+              拖曳畫面移動，滾輪縮放。連線粗細代表權重大小，神經元亮度代表激活值強度。
             </p>
           </div>
         </div>
