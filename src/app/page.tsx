@@ -8,6 +8,11 @@ const chapters = [
   { id: 5, title: "損失函數與優化", desc: "衡量模型的好壞並改進它", icon: "🎯" },
   { id: 6, title: "反向傳播", desc: "神經網路如何學習——梯度下降的核心", icon: "🔄" },
   { id: 7, title: "建構完整的神經網路", desc: "從零開始用程式碼建立你的第一個神經網路", icon: "🏗️" },
+  { id: 8, title: "過擬合與正則化", desc: "讓模型真正「學會」而不是「背答案」", icon: "🛡️" },
+  { id: 9, title: "進階優化器", desc: "比基本梯度下降更聰明的訓練方法", icon: "🚀" },
+  { id: 10, title: "卷積神經網路 (CNN)", desc: "專為圖像設計的神經網路架構", icon: "🖼️" },
+  { id: 11, title: "循環神經網路 (RNN)", desc: "處理序列資料的記憶型網路", icon: "🔁" },
+  { id: 12, title: "實戰專案：手寫數字辨識", desc: "綜合運用所有知識完成一個真實專案", icon: "✍️" },
 ];
 
 const features = [
@@ -100,7 +105,7 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <h2 className="text-3xl font-bold text-center mb-4">課程大綱</h2>
         <p className="text-center text-[var(--foreground)]/60 mb-12 max-w-2xl mx-auto">
-          7 個章節帶你從零基礎到能獨立建構神經網路
+          12 個章節帶你從零基礎到能獨立建構神經網路
         </p>
         <div className="max-w-3xl mx-auto space-y-4">
           {chapters.map((ch) => (
