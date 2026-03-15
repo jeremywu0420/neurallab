@@ -68,7 +68,7 @@ export function NeuralNetworkSandbox() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
-  const [hoveredNeuron, setHoveredNeuron] = useState<{ layer: number; index: number } | null>(null);
+  const hoveredNeuronRef = useRef<{ layer: number; index: number } | null>(null);
   const [selectedNeuron, setSelectedNeuron] = useState<{ layer: number; index: number } | null>(null);
 
   // Track which neurons have been "lit" during propagation
@@ -398,8 +398,8 @@ export function NeuralNetworkSandbox() {
       neurons.forEach((layer) => {
         layer.forEach((neuron) => {
           const isHovered =
-            hoveredNeuron?.layer === neuron.layerIndex &&
-            hoveredNeuron?.index === neuron.neuronIndex;
+            hoveredNeuronRef.current?.layer === neuron.layerIndex &&
+            hoveredNeuronRef.current?.index === neuron.neuronIndex;
           const isSel =
             selectedNeuron?.layer === neuron.layerIndex &&
             selectedNeuron?.index === neuron.neuronIndex;
@@ -537,7 +537,7 @@ export function NeuralNetworkSandbox() {
       cancelAnimationFrame(animationRef.current);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [neurons, connections, isAnimating, animationSpeed, hoveredNeuron, selectedNeuron, layerConfig, propagationActive]);
+  }, [neurons, connections, isAnimating, animationSpeed, selectedNeuron, layerConfig, propagationActive]);
 
   // --- Mouse event handlers ---
   useEffect(() => {
@@ -596,14 +596,14 @@ export function NeuralNetworkSandbox() {
           const dx = worldX - neuron.x;
           const dy = worldY - neuron.y;
           if (Math.sqrt(dx * dx + dy * dy) < 24) {
-            setHoveredNeuron({ layer: neuron.layerIndex, index: neuron.neuronIndex });
+            hoveredNeuronRef.current = { layer: neuron.layerIndex, index: neuron.neuronIndex };
             found = true;
             break;
           }
         }
         if (found) break;
       }
-      if (!found) setHoveredNeuron(null);
+      if (!found) hoveredNeuronRef.current = null;
 
       if (!dragRef.current.isDragging) {
         canvas.style.cursor = found ? "pointer" : "grab";
@@ -655,7 +655,7 @@ export function NeuralNetworkSandbox() {
       dragRef.current.isDragging = false;
       dragRef.current.hasMoved = false;
       canvas.style.cursor = "grab";
-      setHoveredNeuron(null);
+      hoveredNeuronRef.current = null;
     };
 
     canvas.addEventListener("wheel", handleWheel, { passive: false });
