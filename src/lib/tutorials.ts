@@ -14,12 +14,18 @@ export interface CodingExercise {
 }
 
 export interface TutorialSection {
-  type: "text" | "code" | "math" | "interactive" | "quiz" | "code-step" | "coding-exercise";
+  type: "text" | "code" | "math" | "interactive" | "quiz" | "code-step" | "coding-exercise" | "image" | "diagram";
   content: string;
   language?: string;
   explanation?: string;
   steps?: CodeStep[];
   exercise?: CodingExercise;
+  /** For "image" type: URL or path (e.g. /images/tutorials/ch1-neuron.png) */
+  src?: string;
+  /** For "image"/"diagram": alt text or caption */
+  caption?: string;
+  /** For "diagram" type: the diagram variant to render */
+  diagram?: string;
 }
 
 export interface Tutorial {
@@ -58,6 +64,12 @@ export const tutorials: Tutorial[] = [
 - 昨天有下雨嗎？（輸入 3）
 
 每個因素對你的影響力不同——你可能更相信天氣預報（高權重），而比較不在意昨天的天氣（低權重）。最後你綜合所有因素做出「帶傘」或「不帶傘」的決定。這就是神經元的運作方式！`,
+      },
+      {
+        type: "diagram",
+        content: "single-neuron",
+        diagram: "single-neuron",
+        caption: "人工神經元的結構：輸入 × 權重 → 加總 + 偏差 → 激活函數 → 輸出",
       },
       {
         type: "text",
@@ -586,6 +598,12 @@ console.log(p.predict([1, 1]));`,
 3. **控制輸出範圍**：將輸出限制在特定範圍內`,
       },
       {
+        type: "diagram",
+        content: "activation-functions",
+        diagram: "activation-functions",
+        caption: "三種常用激活函數的圖形比較：Sigmoid（0~1）、ReLU（≥0）、Tanh（-1~1）",
+      },
+      {
         type: "text",
         content: `## Sigmoid 函數
 
@@ -791,6 +809,18 @@ console.log(leakyRelu(0));`,
 - **隱藏層 1** = 備料廚師（切菜、揉麵、磨起司）
 - **隱藏層 2** = 烹飪廚師（烤披薩、煮湯）
 - **輸出層** = 擺盤出菜
+
+每一層的每個節點（神經元）都與下一層的所有節點相連，形成全連接的結構。`,
+      },
+      {
+        type: "diagram",
+        content: "multi-layer-network",
+        diagram: "multi-layer-network",
+        caption: "多層神經網路架構：3 個輸入 → 4 個隱藏神經元 → 4 個隱藏神經元 → 2 個輸出",
+      },
+      {
+        type: "text",
+        content: `### 前向傳播的數學
 
 食材依序經過每個廚師的處理，最後變成完整的料理。每個「廚師」就是一個神經元，他們各自的「手藝」就是權重。`,
       },
@@ -1051,7 +1081,17 @@ console.log(forwardPass([1, 0.5]).toFixed(4));`,
 想像你被蒙上眼睛站在一座山上，想找到最低的山谷（最低損失）。你的策略是：
 1. 感受腳下的坡度（計算梯度）
 2. 朝最陡的下坡方向走一步（更新權重）
-3. 重複直到到達谷底
+3. 重複直到到達谷底`,
+      },
+      {
+        type: "diagram",
+        content: "gradient-descent",
+        diagram: "gradient-descent",
+        caption: "梯度下降過程：從起始點沿著損失曲面逐步走向最小值",
+      },
+      {
+        type: "text",
+        content: `### 梯度下降的數學
 
 **梯度** 就是「坡度」——它告訴你在當前位置，往哪個方向能最快降低損失。
 
@@ -1202,14 +1242,22 @@ console.log(mse([0, 1, 0, 1], [1, 0, 1, 0]));`,
 2. 混合糖和奶粉（第二層）
 3. 成型包裝（第三層）
 
-如果最後的巧克力太甜了，你需要：
+如果最後的巧克力太甜了（Loss 太高），你需要：
 1. 先看看是不是包裝環節的問題（輸出層）
 2. 再往回看混合的比例對不對（隱藏層）
 3. 最後看看研磨的粗細是否影響（輸入層）
 
-這就是「反向」的含義——**從結果往回追溯原因**。
-
-### 鏈式法則
+這就是「反向」的含義——**從結果往回追溯原因**。`,
+      },
+      {
+        type: "diagram",
+        content: "backprop-flow",
+        diagram: "backprop-flow",
+        caption: "前向傳播（藍色）計算預測值；反向傳播（黃色）計算梯度並更新權重",
+      },
+      {
+        type: "text",
+        content: `### 鏈式法則
 
 反向傳播的數學基礎是 **鏈式法則**（Chain Rule）：
 
@@ -1586,9 +1634,17 @@ for (const d of xorData) {
 |------|---------|---------|------|
 | **欠擬合（Underfitting）** | 差 | 差 | 模型太簡單，學不到規律 |
 | **適當擬合（Good Fit）** | 好 | 好 | 這是我們的目標！ |
-| **過擬合（Overfitting）** | 非常好 | 差 | 模型太複雜，記住了雜訊 |
-
-### 如何判斷過擬合？
+| **過擬合（Overfitting）** | 非常好 | 差 | 模型太複雜，記住了雜訊 |`,
+      },
+      {
+        type: "diagram",
+        content: "overfitting",
+        diagram: "overfitting",
+        caption: "欠擬合（模型太簡單）→ 適度擬合（恰到好處）→ 過擬合（模型太複雜，跟著雜訊走）",
+      },
+      {
+        type: "text",
+        content: `### 如何判斷過擬合？
 
 最明顯的信號就是：**訓練損失持續下降，但驗證損失開始上升**。這代表模型正在「背答案」而不是「學規律」。`,
       },
@@ -2512,6 +2568,12 @@ console.log(JSON.stringify(momentumUpdate(2.0, -0.2, 0.1, 0.01, 0.9)));`,
 3. **池化（Pooling）**：逐步縮小圖像尺寸`,
       },
       {
+        type: "diagram",
+        content: "cnn-architecture",
+        diagram: "cnn-architecture",
+        caption: "CNN 典型架構：輸入影像 → 卷積層 → 池化層 → ... → 展平 → 全連接層 → 輸出",
+      },
+      {
         type: "text",
         content: `## 卷積操作
 
@@ -2926,6 +2988,12 @@ console.log(JSON.stringify(myMaxPool(test2, 3)));`,
 RNN 加入了 **「記憶」** 的概念。它一次處理序列中的一個元素，同時把之前處理的信息「記住」，傳遞到下一步。
 
 **生活比喻**：就像你在看一部電影。你不是看完每一幕就忘記前面的劇情，而是把之前的情節「記在腦中」，用來理解當前發生的事情。`,
+      },
+      {
+        type: "diagram",
+        content: "rnn-unrolled",
+        diagram: "rnn-unrolled",
+        caption: "RNN 時間展開圖：每個時間步接收輸入 x，更新隱藏狀態 h，產生輸出 y。黃色箭頭代表記憶傳遞。",
       },
       {
         type: "text",

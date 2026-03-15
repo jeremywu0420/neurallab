@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { TutorialSection, CodeStep, CodingExercise } from "@/lib/tutorials";
 import { CodeRunner } from "./CodeRunner";
+import { DiagramSection } from "./TutorialDiagrams";
 
 function TextSection({ content }: { content: string }) {
   const lines = content.split("\n");
@@ -524,6 +525,32 @@ export function TutorialRenderer({ sections }: { sections: TutorialSection[] }) 
             return section.exercise ? (
               <CodingExerciseSection key={i} exercise={section.exercise} />
             ) : null;
+          case "image":
+            return (
+              <figure key={i} className="my-8 flex flex-col items-center">
+                <div className="w-full max-w-2xl rounded-xl border border-[var(--border)] overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={section.src || section.content}
+                    alt={section.caption || "教學插圖"}
+                    className="w-full h-auto"
+                  />
+                </div>
+                {section.caption && (
+                  <figcaption className="mt-3 text-sm text-[var(--foreground)]/50 text-center italic">
+                    {section.caption}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          case "diagram":
+            return (
+              <DiagramSection
+                key={i}
+                diagram={section.diagram || section.content}
+                caption={section.caption}
+              />
+            );
           default:
             return null;
         }
