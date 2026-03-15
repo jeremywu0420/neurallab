@@ -8,6 +8,11 @@ const chapters = [
   { id: 5, title: "損失函數與優化", desc: "衡量模型的好壞並改進它", icon: "🎯", topics: ["MSE", "交叉熵", "梯度下降", "學習率"] },
   { id: 6, title: "反向傳播", desc: "神經網路如何學習——梯度下降的核心", icon: "🔄", topics: ["鏈式法則", "梯度計算", "權重更新"] },
   { id: 7, title: "建構完整的神經網路", desc: "從零開始用程式碼建立你的第一個神經網路", icon: "🏗️", topics: ["完整實作", "XOR 問題", "多層網路", "訓練與測試"] },
+  { id: 8, title: "過擬合與正則化", desc: "讓模型真正「學會」而不是「背答案」", icon: "🛡️", topics: ["過擬合 vs 欠擬合", "Dropout", "L2 正則化", "早停法", "資料分割"] },
+  { id: 9, title: "進階優化器", desc: "比基本梯度下降更聰明的訓練方法", icon: "🚀", topics: ["Momentum", "RMSprop", "Adam", "學習率排程", "批次訓練"] },
+  { id: 10, title: "卷積神經網路 (CNN)", desc: "專為圖像設計的神經網路架構", icon: "🖼️", topics: ["卷積核", "特徵圖", "池化層", "圖像辨識", "參數共享"] },
+  { id: 11, title: "循環神經網路 (RNN)", desc: "處理序列資料的記憶型網路", icon: "🔁", topics: ["序列建模", "隱藏狀態", "LSTM", "文字生成", "時間序列"] },
+  { id: 12, title: "實戰專案：手寫數字辨識", desc: "綜合運用所有知識完成一個真實專案", icon: "✍️", topics: ["MNIST", "資料前處理", "模型設計", "訓練流程", "效能評估"] },
 ];
 
 export default function TutorialsPage() {
@@ -16,7 +21,7 @@ export default function TutorialsPage() {
       <div className="mb-12">
         <h1 className="text-3xl md:text-4xl font-bold mb-4">教學課程</h1>
         <p className="text-[var(--foreground)]/60 text-lg">
-          從零開始，7 個章節帶你完整理解並實作神經網路
+          從零開始，12 個章節帶你完整理解並實作神經網路
         </p>
       </div>
 
