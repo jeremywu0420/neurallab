@@ -333,6 +333,12 @@ console.log(myNeuron([1, 0, 1], [0.3, 0.3, 0.3], 0.1));`,
 - **無法用一條直線分開 ✗** — 這就是感知器的根本限制！`,
       },
       {
+        type: "diagram",
+        content: "perceptron-boundary",
+        diagram: "perceptron-boundary",
+        caption: "AND 和 OR 可以用一條直線分開（線性可分），但 XOR 不行——這是單層感知器的根本限制",
+      },
+      {
         type: "code-step",
         content: `class Perceptron {
   constructor(inputSize, learningRate = 0.1) {
@@ -1071,6 +1077,12 @@ console.log(forwardPass([1, 0.5]).toFixed(4));`,
 - 比 MSE 更能「懲罰」嚴重的錯誤預測`,
       },
       {
+        type: "diagram",
+        content: "loss-functions",
+        diagram: "loss-functions",
+        caption: "MSE 與交叉熵損失的比較：交叉熵對錯誤預測的懲罰更大，更適合分類任務",
+      },
+      {
         type: "text",
         content: `## 梯度下降：朝正確方向前進
 
@@ -1702,9 +1714,17 @@ for (const d of xorData) {
 
 **生活比喻**：就像籃球隊練習時，教練隨機讓一些球員坐板凳。這樣每個球員都要學會獨立作戰，而不是只依賴明星球員。整個隊伍變得更強壯。
 
-**注意**：Dropout 只在訓練時使用！測試時所有神經元都參與。
-
-### 3. 早停法（Early Stopping）
+**注意**：Dropout 只在訓練時使用！測試時所有神經元都參與。`,
+      },
+      {
+        type: "diagram",
+        content: "dropout",
+        diagram: "dropout",
+        caption: "左：完整網路（測試時所有神經元都活躍）。右：Dropout 網路（訓練時隨機關閉部分神經元）",
+      },
+      {
+        type: "text",
+        content: `### 3. 早停法（Early Stopping）
 
 **原理**：監控驗證集損失，當驗證集損失連續多個 epoch 不再改善時，停止訓練。
 
@@ -2073,6 +2093,12 @@ console.log(l2Loss(2.0, [[0, 0], [0, 0]], 0.1));`,
 ### 解決方案：更聰明的優化器
 
 接下來我們會學習三個改進版的優化器：**Momentum**、**RMSprop** 和 **Adam**。`,
+      },
+      {
+        type: "diagram",
+        content: "optimizer-paths",
+        diagram: "optimizer-paths",
+        caption: "三種優化器的收斂路徑比較：SGD 震盪嚴重，Momentum 較平滑，Adam 最直接有效",
       },
       {
         type: "text",
@@ -2589,7 +2615,17 @@ console.log(JSON.stringify(momentumUpdate(2.0, -0.2, 0.1, 0.01, 0.9)));`,
 
 ### 卷積運算
 
-卷積核在圖像上滑動，在每個位置做「逐元素相乘再求和」：
+卷積核在圖像上滑動，在每個位置做「逐元素相乘再求和」。下圖示範了一個位置的計算過程：`,
+      },
+      {
+        type: "diagram",
+        content: "convolution-step",
+        diagram: "convolution-step",
+        caption: "卷積運算示意：黃框標示卷積核覆蓋的區域，逐元素相乘後求和得到特徵圖的一個值",
+      },
+      {
+        type: "text",
+        content: `更具體的數字範例：
 
 \`\`\`
 圖像區塊:     卷積核:        結果:
@@ -2634,9 +2670,17 @@ console.log(JSON.stringify(momentumUpdate(2.0, -0.2, 0.1, 0.01, 0.9)));`,
 [4  1 | 3  2]
 \`\`\`
 
-**為什麼取最大值？** 如果卷積核偵測到了某個特徵（比如邊緣），那個位置的值會很大。Max pooling 保留了「這個區域有沒有這個特徵」的信息，同時丟掉了精確位置——這其實是好事！因為我們不需要知道邊緣在第 5 列還是第 6 列，只需要知道「這個區域有邊緣」。
-
-### 平均池化（Average Pooling）
+**為什麼取最大值？** 如果卷積核偵測到了某個特徵（比如邊緣），那個位置的值會很大。Max pooling 保留了「這個區域有沒有這個特徵」的信息，同時丟掉了精確位置——這其實是好事！因為我們不需要知道邊緣在第 5 列還是第 6 列，只需要知道「這個區域有邊緣」。`,
+      },
+      {
+        type: "diagram",
+        content: "max-pooling",
+        diagram: "max-pooling",
+        caption: "Max Pooling 2×2：每個顏色區域取最大值，特徵圖尺寸縮小一半",
+      },
+      {
+        type: "text",
+        content: `### 平均池化（Average Pooling）
 取區域內的平均值。比 max pooling 更平滑，但不太常用。
 
 ## 完整 CNN 架構
@@ -3050,9 +3094,17 @@ RNN 在處理長序列時有一個嚴重的問題：**梯度消失**。
 
 ## LSTM：長短期記憶網路
 
-LSTM（Long Short-Term Memory）是為了解決梯度消失問題而設計的。它用三個「門」來控制信息的流動：
-
-### 1. 遺忘門（Forget Gate）
+LSTM（Long Short-Term Memory）是為了解決梯度消失問題而設計的。它用三個「門」來控制信息的流動：`,
+      },
+      {
+        type: "diagram",
+        content: "lstm-gates",
+        diagram: "lstm-gates",
+        caption: "LSTM 內部結構：遺忘門（紅）決定丟棄什麼、輸入門（黃）決定記住什麼、輸出門（藍）決定輸出什麼",
+      },
+      {
+        type: "text",
+        content: `### 1. 遺忘門（Forget Gate）
 \`f_t = σ(W_f × [h_{t-1}, x_t] + b_f)\`
 決定「上一步的記憶中，哪些該丟掉」。輸出 0~1，0 表示完全遺忘，1 表示完全保留。
 
@@ -3451,9 +3503,17 @@ Softmax 把一組數字轉換成 **機率分佈**（所有值加起來 = 1）：
 - 總和：11.22
 - Softmax：[0.659, 0.242, 0.099]
 
-最大的值（2.0）得到最高的機率（65.9%），這就是模型的預測！
-
-### 交叉熵損失（Cross-Entropy Loss）
+最大的值（2.0）得到最高的機率（65.9%），這就是模型的預測！`,
+      },
+      {
+        type: "diagram",
+        content: "softmax",
+        diagram: "softmax",
+        caption: "Softmax 將原始分數（Logits）轉換為機率分佈，選擇機率最高的類別作為預測結果",
+      },
+      {
+        type: "text",
+        content: `### 交叉熵損失（Cross-Entropy Loss）
 
 多分類的損失函數：
 

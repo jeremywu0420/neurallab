@@ -606,6 +606,842 @@ function RNNUnrolled({ caption }: DiagramProps) {
   );
 }
 
+// ─── 9. Perceptron decision boundary + XOR ───
+function PerceptronBoundary({ caption }: DiagramProps) {
+  const w = 540;
+  const h = 240;
+
+  // AND gate data
+  const andData = [
+    { x: 0, y: 0, label: 0 },
+    { x: 0, y: 1, label: 0 },
+    { x: 1, y: 0, label: 0 },
+    { x: 1, y: 1, label: 1 },
+  ];
+
+  // XOR data
+  const xorData = [
+    { x: 0, y: 0, label: 0 },
+    { x: 0, y: 1, label: 1 },
+    { x: 1, y: 0, label: 1 },
+    { x: 1, y: 1, label: 0 },
+  ];
+
+  const plotSize = 160;
+  const pad = 30;
+
+  const renderPlot = (
+    data: typeof andData,
+    offsetX: number,
+    title: string,
+    lineStart?: [number, number],
+    lineEnd?: [number, number],
+    canSeparate?: boolean
+  ) => {
+    const toX = (v: number) => offsetX + pad + v * (plotSize - 2 * pad);
+    const toY = (v: number) => 40 + (1 - v) * (plotSize - 2 * pad);
+
+    return (
+      <g>
+        <text x={offsetX + plotSize / 2} y={25} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={12} fontWeight="bold">
+          {title}
+        </text>
+
+        {/* Axes */}
+        <line x1={offsetX + pad} y1={40 + plotSize - 2 * pad} x2={offsetX + plotSize - pad + 10} y2={40 + plotSize - 2 * pad} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+        <line x1={offsetX + pad} y1={40 + plotSize - 2 * pad} x2={offsetX + pad} y2={30} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+
+        {/* Decision boundary */}
+        {lineStart && lineEnd && (
+          <line
+            x1={toX(lineStart[0])}
+            y1={toY(lineStart[1])}
+            x2={toX(lineEnd[0])}
+            y2={toY(lineEnd[1])}
+            stroke={canSeparate ? "rgba(52,211,153,0.6)" : "rgba(239,68,68,0.6)"}
+            strokeWidth={2}
+            strokeDasharray={canSeparate ? "0" : "6"}
+          />
+        )}
+
+        {/* Data points */}
+        {data.map((d, i) => (
+          <g key={i}>
+            <circle
+              cx={toX(d.x)}
+              cy={toY(d.y)}
+              r={10}
+              fill={d.label === 1 ? "rgba(251,191,36,0.3)" : "rgba(96,165,250,0.3)"}
+              stroke={d.label === 1 ? "rgba(251,191,36,0.8)" : "rgba(96,165,250,0.8)"}
+              strokeWidth={2}
+            />
+            <text x={toX(d.x)} y={toY(d.y) + 4} textAnchor="middle" fill="rgba(255,255,255,0.8)" fontSize={10} fontWeight="bold">
+              {d.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Status */}
+        <text
+          x={offsetX + plotSize / 2}
+          y={plotSize + 30}
+          textAnchor="middle"
+          fill={canSeparate ? "rgba(52,211,153,0.7)" : "rgba(239,68,68,0.7)"}
+          fontSize={10}
+        >
+          {canSeparate ? "✓ 可線性分割" : "✗ 無法線性分割"}
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 260 }}>
+        {/* AND gate - linearly separable */}
+        {renderPlot(andData, 20, "AND 閘", [-0.1, 0.7], [1.1, 0.3], true)}
+
+        {/* OR gate */}
+        {renderPlot(
+          [
+            { x: 0, y: 0, label: 0 },
+            { x: 0, y: 1, label: 1 },
+            { x: 1, y: 0, label: 1 },
+            { x: 1, y: 1, label: 1 },
+          ],
+          190,
+          "OR 閘",
+          [-0.1, 0.3], [0.7, -0.1],
+          true
+        )}
+
+        {/* XOR - NOT linearly separable */}
+        {renderPlot(xorData, 360, "XOR 閘", [-0.1, 0.5], [1.1, 0.5], false)}
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 10. Loss functions comparison ───
+function LossFunctions({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 220;
+
+  const plotW = 200;
+  const plotH = 150;
+
+  const renderLossPlot = (
+    offsetX: number,
+    title: string,
+    fn: (pred: number, actual: number) => number,
+    color: string
+  ) => {
+    // Plot loss for actual=1, varying prediction from 0.01 to 0.99
+    const points: [number, number][] = [];
+    const maxLoss = fn(0.01, 1);
+    for (let i = 0; i <= 50; i++) {
+      const pred = 0.01 + (i / 50) * 0.98;
+      const loss = fn(pred, 1);
+      const x = offsetX + 30 + (i / 50) * (plotW - 50);
+      const y = 40 + (1 - loss / maxLoss) * (plotH - 20);
+      points.push([x, y]);
+    }
+    const path = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+
+    return (
+      <g>
+        <text x={offsetX + plotW / 2} y={25} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={11} fontWeight="bold">
+          {title}
+        </text>
+
+        {/* Axes */}
+        <line x1={offsetX + 30} y1={40 + plotH - 20} x2={offsetX + plotW - 15} y2={40 + plotH - 20} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+        <line x1={offsetX + 30} y1={40 + plotH - 20} x2={offsetX + 30} y2={35} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+
+        {/* Labels */}
+        <text x={offsetX + plotW / 2} y={40 + plotH} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9}>
+          預測值 (ŷ)
+        </text>
+        <text x={offsetX + 15} y={40 + plotH / 2 - 10} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9} transform={`rotate(-90, ${offsetX + 15}, ${40 + plotH / 2 - 10})`}>
+          Loss
+        </text>
+
+        {/* Curve */}
+        <path d={path} fill="none" stroke={color} strokeWidth={2.5} />
+
+        {/* Annotation */}
+        <text x={offsetX + plotW - 25} y={40 + plotH - 30} textAnchor="end" fill={color} fontSize={9}>
+          y=1
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 240 }}>
+        {/* MSE */}
+        {renderLossPlot(
+          20,
+          "MSE 損失",
+          (pred, actual) => (pred - actual) ** 2,
+          "rgba(96,165,250,0.8)"
+        )}
+
+        {/* Cross-Entropy */}
+        {renderLossPlot(
+          280,
+          "交叉熵損失",
+          (pred, actual) => -(actual * Math.log(pred + 1e-8)),
+          "rgba(251,191,36,0.8)"
+        )}
+
+        <text x={w / 2} y={h - 5} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={9}>
+          當真實標籤 y=1 時，預測越接近 1，損失越小。交叉熵對錯誤預測的懲罰更大。
+        </text>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 11. Dropout visualization ───
+function DropoutDiagram({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 220;
+
+  const layers = [3, 5, 5, 2];
+  const layerSpacing = 110;
+  const startX = 50;
+
+  // Deterministic "random" dropout pattern
+  const droppedNeurons = new Set(["1-1", "1-3", "2-0", "2-4"]);
+
+  const getY = (layerIdx: number, nodeIdx: number) => {
+    const count = layers[layerIdx];
+    const totalH = (count - 1) * 32;
+    return 100 - totalH / 2 + nodeIdx * 32;
+  };
+
+  const renderNetwork = (offsetX: number, dropout: boolean, title: string) => (
+    <g>
+      <text x={offsetX + (layers.length - 1) * layerSpacing / 2 + startX} y={18} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11} fontWeight="bold">
+        {title}
+      </text>
+
+      {/* Connections */}
+      {layers.map((count, li) => {
+        if (li === 0) return null;
+        const prevCount = layers[li - 1];
+        return Array.from({ length: prevCount }, (_, pi) => {
+          if (dropout && droppedNeurons.has(`${li - 1}-${pi}`)) return null;
+          return Array.from({ length: count }, (_, ni) => {
+            if (dropout && droppedNeurons.has(`${li}-${ni}`)) return null;
+            return (
+              <line
+                key={`c${li}-${pi}-${ni}`}
+                x1={offsetX + startX + (li - 1) * layerSpacing}
+                y1={getY(li - 1, pi)}
+                x2={offsetX + startX + li * layerSpacing}
+                y2={getY(li, ni)}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth={1}
+              />
+            );
+          });
+        });
+      })}
+
+      {/* Neurons */}
+      {layers.map((count, li) =>
+        Array.from({ length: count }, (_, ni) => {
+          const isDropped = dropout && droppedNeurons.has(`${li}-${ni}`);
+          return (
+            <g key={`n${li}-${ni}`}>
+              <circle
+                cx={offsetX + startX + li * layerSpacing}
+                cy={getY(li, ni)}
+                r={12}
+                fill={isDropped ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.15)"}
+                stroke={isDropped ? "rgba(239,68,68,0.4)" : "rgba(139,92,246,0.6)"}
+                strokeWidth={isDropped ? 1 : 1.5}
+                strokeDasharray={isDropped ? "3" : "0"}
+              />
+              {isDropped && (
+                <text
+                  x={offsetX + startX + li * layerSpacing}
+                  y={getY(li, ni) + 4}
+                  textAnchor="middle"
+                  fill="rgba(239,68,68,0.6)"
+                  fontSize={12}
+                >
+                  ✕
+                </text>
+              )}
+            </g>
+          );
+        })
+      )}
+    </g>
+  );
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 240 }}>
+        <g transform="translate(-70, 10)">
+          {renderNetwork(0, false, "完整網路（測試時）")}
+        </g>
+        <g transform="translate(200, 10)">
+          {renderNetwork(0, true, "Dropout 網路（訓練時）")}
+        </g>
+
+        {/* Legend */}
+        <g transform={`translate(${w / 2 - 80}, ${h - 20})`}>
+          <circle cx={0} cy={0} r={5} fill="rgba(139,92,246,0.15)" stroke="rgba(139,92,246,0.6)" strokeWidth={1.5} />
+          <text x={10} y={4} fill="rgba(255,255,255,0.4)" fontSize={9}>活躍</text>
+          <circle cx={60} cy={0} r={5} fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.4)" strokeWidth={1} strokeDasharray="3" />
+          <text x={70} y={4} fill="rgba(255,255,255,0.4)" fontSize={9}>被關閉</text>
+        </g>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 12. Momentum/Adam optimizer paths ───
+function OptimizerPaths({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 260;
+
+  // Contour-like ellipses centered at (260, 130) - the minimum
+  const cx = 260;
+  const cy = 130;
+
+  // SGD path (zigzag)
+  const sgdPath = [
+    [80, 50], [120, 180], [160, 70], [195, 170], [225, 90], [245, 155], [255, 115], [258, 135], [260, 130],
+  ];
+
+  // Momentum path (smoother, wider curve)
+  const momentumPath = [
+    [80, 50], [140, 160], [190, 80], [230, 140], [250, 110], [258, 132], [260, 130],
+  ];
+
+  // Adam path (direct)
+  const adamPath = [
+    [80, 50], [130, 100], [180, 110], [220, 120], [245, 128], [260, 130],
+  ];
+
+  const pathToSvg = (pts: number[][]) =>
+    pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 280 }}>
+        {/* Contour ellipses */}
+        {[140, 100, 65, 35, 12].map((r, i) => (
+          <ellipse
+            key={i}
+            cx={cx}
+            cy={cy}
+            rx={r * 1.8}
+            ry={r}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* Minimum point */}
+        <circle cx={cx} cy={cy} r={4} fill="rgba(52,211,153,0.8)" />
+        <text x={cx} y={cy + 18} textAnchor="middle" fill="rgba(52,211,153,0.6)" fontSize={9}>
+          最小值
+        </text>
+
+        {/* SGD path */}
+        <path d={pathToSvg(sgdPath)} fill="none" stroke="rgba(239,68,68,0.6)" strokeWidth={2} strokeDasharray="4" />
+        {sgdPath.map(([x, y], i) => (
+          <circle key={`s${i}`} cx={x} cy={y} r={2.5} fill="rgba(239,68,68,0.8)" />
+        ))}
+
+        {/* Momentum path */}
+        <path d={pathToSvg(momentumPath)} fill="none" stroke="rgba(251,191,36,0.6)" strokeWidth={2} />
+        {momentumPath.map(([x, y], i) => (
+          <circle key={`m${i}`} cx={x} cy={y} r={2.5} fill="rgba(251,191,36,0.8)" />
+        ))}
+
+        {/* Adam path */}
+        <path d={pathToSvg(adamPath)} fill="none" stroke="rgba(96,165,250,0.8)" strokeWidth={2.5} />
+        {adamPath.map(([x, y], i) => (
+          <circle key={`a${i}`} cx={x} cy={y} r={3} fill="rgba(96,165,250,0.9)" />
+        ))}
+
+        {/* Start point */}
+        <circle cx={80} cy={50} r={5} fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} />
+        <text x={80} y={38} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={9}>起始點</text>
+
+        {/* Legend */}
+        <g transform={`translate(${w - 140}, 20)`}>
+          <line x1={0} y1={0} x2={18} y2={0} stroke="rgba(239,68,68,0.6)" strokeWidth={2} strokeDasharray="4" />
+          <text x={24} y={4} fill="rgba(239,68,68,0.7)" fontSize={10}>SGD</text>
+
+          <line x1={0} y1={20} x2={18} y2={20} stroke="rgba(251,191,36,0.6)" strokeWidth={2} />
+          <text x={24} y={24} fill="rgba(251,191,36,0.7)" fontSize={10}>Momentum</text>
+
+          <line x1={0} y1={40} x2={18} y2={40} stroke="rgba(96,165,250,0.8)" strokeWidth={2.5} />
+          <text x={24} y={44} fill="rgba(96,165,250,0.8)" fontSize={10}>Adam</text>
+        </g>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 13. Convolution step-by-step ───
+function ConvolutionStep({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 240;
+  const cs = 30; // cell size
+
+  // 5x5 input
+  const input = [
+    [1, 0, 1, 0, 1],
+    [0, 1, 0, 1, 0],
+    [1, 0, 1, 0, 1],
+    [0, 1, 0, 1, 0],
+    [1, 0, 1, 0, 1],
+  ];
+
+  // 3x3 kernel
+  const kernel = [
+    [1, 0, -1],
+    [1, 0, -1],
+    [1, 0, -1],
+  ];
+
+  // Highlight position (1,1)
+  const hi = 1;
+  const hj = 1;
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 260 }}>
+        {/* Input grid */}
+        <text x={95} y={18} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>輸入 (5×5)</text>
+        {input.map((row, i) =>
+          row.map((val, j) => {
+            const inKernel = i >= hi && i < hi + 3 && j >= hj && j < hj + 3;
+            return (
+              <g key={`i${i}-${j}`}>
+                <rect
+                  x={20 + j * cs}
+                  y={28 + i * cs}
+                  width={cs}
+                  height={cs}
+                  fill={inKernel ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.03)"}
+                  stroke={inKernel ? "rgba(251,191,36,0.6)" : "rgba(255,255,255,0.1)"}
+                  strokeWidth={inKernel ? 2 : 1}
+                />
+                <text
+                  x={20 + j * cs + cs / 2}
+                  y={28 + i * cs + cs / 2 + 4}
+                  textAnchor="middle"
+                  fill={inKernel ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)"}
+                  fontSize={11}
+                  fontFamily="monospace"
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })
+        )}
+
+        {/* Multiply sign */}
+        <text x={195} y={105} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={20}>⊙</text>
+
+        {/* Kernel grid */}
+        <text x={265} y={50} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>卷積核 (3×3)</text>
+        {kernel.map((row, i) =>
+          row.map((val, j) => (
+            <g key={`k${i}-${j}`}>
+              <rect
+                x={220 + j * cs}
+                y={58 + i * cs}
+                width={cs}
+                height={cs}
+                fill={val > 0 ? "rgba(52,211,153,0.15)" : val < 0 ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.03)"}
+                stroke="rgba(251,191,36,0.4)"
+                strokeWidth={1}
+              />
+              <text
+                x={220 + j * cs + cs / 2}
+                y={58 + i * cs + cs / 2 + 4}
+                textAnchor="middle"
+                fill={val > 0 ? "rgba(52,211,153,0.8)" : val < 0 ? "rgba(239,68,68,0.8)" : "rgba(255,255,255,0.4)"}
+                fontSize={11}
+                fontFamily="monospace"
+              >
+                {val}
+              </text>
+            </g>
+          ))
+        )}
+
+        {/* Equals sign */}
+        <text x={345} y={105} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={20}>=</text>
+
+        {/* Calculation detail */}
+        <g>
+          <text x={430} y={55} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={10}>逐元素相乘求和</text>
+
+          <text x={380} y={80} textAnchor="start" fill="rgba(255,255,255,0.4)" fontSize={9} fontFamily="monospace">
+            0×1 + 1×0 + 0×(-1)
+          </text>
+          <text x={380} y={98} textAnchor="start" fill="rgba(255,255,255,0.4)" fontSize={9} fontFamily="monospace">
+            +1×1 + 0×0 + 1×(-1)
+          </text>
+          <text x={380} y={116} textAnchor="start" fill="rgba(255,255,255,0.4)" fontSize={9} fontFamily="monospace">
+            +0×1 + 1×0 + 0×(-1)
+          </text>
+
+          <line x1={380} y1={124} x2={500} y2={124} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+
+          <text x={430} y={142} textAnchor="middle" fill="rgba(96,165,250,0.8)" fontSize={13} fontFamily="monospace" fontWeight="bold">
+            = 0
+          </text>
+        </g>
+
+        {/* Output grid hint */}
+        <text x={w / 2} y={h - 15} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={9}>
+          卷積核在輸入上滑動，每個位置做逐元素乘積求和，產生 3×3 的特徵圖
+        </text>
+
+        {/* Arrow showing sliding */}
+        <text x={95} y={195} textAnchor="middle" fill="rgba(251,191,36,0.5)" fontSize={9}>
+          ↗ 黃框 = 目前掃描位置
+        </text>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 14. Max Pooling ───
+function MaxPoolingDiagram({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 200;
+  const cs = 36;
+
+  const input = [
+    [1, 5, 3, 2],
+    [8, 2, 4, 1],
+    [3, 7, 6, 9],
+    [0, 4, 2, 5],
+  ];
+
+  const poolColors = [
+    "rgba(96,165,250,0.15)",
+    "rgba(52,211,153,0.15)",
+    "rgba(251,191,36,0.15)",
+    "rgba(239,68,68,0.15)",
+  ];
+
+  const poolBorders = [
+    "rgba(96,165,250,0.5)",
+    "rgba(52,211,153,0.5)",
+    "rgba(251,191,36,0.5)",
+    "rgba(239,68,68,0.5)",
+  ];
+
+  const maxVals = [
+    [8, 4],
+    [7, 9],
+  ];
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 220 }}>
+        <text x={120} y={22} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>特徵圖 (4×4)</text>
+
+        {/* Input grid with pool regions */}
+        {input.map((row, i) =>
+          row.map((val, j) => {
+            const poolIdx = Math.floor(i / 2) * 2 + Math.floor(j / 2);
+            const isMax = val === maxVals[Math.floor(i / 2)][Math.floor(j / 2)];
+            return (
+              <g key={`p${i}-${j}`}>
+                <rect
+                  x={48 + j * cs}
+                  y={32 + i * cs}
+                  width={cs}
+                  height={cs}
+                  fill={poolColors[poolIdx]}
+                  stroke={poolBorders[poolIdx]}
+                  strokeWidth={isMax ? 2.5 : 1}
+                />
+                <text
+                  x={48 + j * cs + cs / 2}
+                  y={32 + i * cs + cs / 2 + 5}
+                  textAnchor="middle"
+                  fill={isMax ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)"}
+                  fontSize={isMax ? 14 : 12}
+                  fontFamily="monospace"
+                  fontWeight={isMax ? "bold" : "normal"}
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })
+        )}
+
+        {/* Arrow */}
+        <text x={230} y={108} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={14}>→</text>
+        <text x={230} y={125} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9}>Max</text>
+        <text x={230} y={138} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9}>Pool</text>
+        <text x={230} y={151} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9}>2×2</text>
+
+        {/* Output grid */}
+        <text x={330} y={55} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>輸出 (2×2)</text>
+
+        {maxVals.map((row, i) =>
+          row.map((val, j) => {
+            const poolIdx = i * 2 + j;
+            return (
+              <g key={`o${i}-${j}`}>
+                <rect
+                  x={285 + j * (cs + 8)}
+                  y={65 + i * (cs + 8)}
+                  width={cs + 8}
+                  height={cs + 8}
+                  rx={4}
+                  fill={poolColors[poolIdx]}
+                  stroke={poolBorders[poolIdx]}
+                  strokeWidth={2}
+                />
+                <text
+                  x={285 + j * (cs + 8) + (cs + 8) / 2}
+                  y={65 + i * (cs + 8) + (cs + 8) / 2 + 5}
+                  textAnchor="middle"
+                  fill="rgba(255,255,255,0.9)"
+                  fontSize={16}
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })
+        )}
+
+        <text x={w / 2} y={h - 10} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={9}>
+          每個 2×2 區域取最大值，尺寸縮小一半，保留最重要的特徵
+        </text>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 15. LSTM gate structure ───
+function LSTMGates({ caption }: DiagramProps) {
+  const w = 540;
+  const h = 280;
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 300 }}>
+        {/* Cell state line (top) */}
+        <line x1={30} y1={40} x2={510} y2={40} stroke="rgba(52,211,153,0.5)" strokeWidth={3} />
+        <text x={270} y={25} textAnchor="middle" fill="rgba(52,211,153,0.5)" fontSize={10}>
+          Cell State (C) — 長期記憶
+        </text>
+
+        {/* Hidden state line (bottom) */}
+        <line x1={30} y1={220} x2={510} y2={220} stroke="rgba(96,165,250,0.5)" strokeWidth={3} />
+        <text x={270} y={250} textAnchor="middle" fill="rgba(96,165,250,0.5)" fontSize={10}>
+          Hidden State (h) — 短期記憶 / 輸出
+        </text>
+
+        {/* Forget Gate */}
+        <g>
+          <rect x={80} y={90} width={80} height={50} rx={8} fill="rgba(239,68,68,0.15)" stroke="rgba(239,68,68,0.6)" strokeWidth={1.5} />
+          <text x={120} y={112} textAnchor="middle" fill="rgba(239,68,68,0.8)" fontSize={10} fontWeight="bold">遺忘門</text>
+          <text x={120} y={128} textAnchor="middle" fill="rgba(239,68,68,0.5)" fontSize={9} fontFamily="monospace">σ(W·[h,x])</text>
+
+          {/* Connection to cell state */}
+          <line x1={120} y1={90} x2={120} y2={55} stroke="rgba(239,68,68,0.4)" strokeWidth={1.5} markerEnd="url(#arrowR)" />
+          <circle cx={120} cy={55} r={8} fill="none" stroke="rgba(239,68,68,0.4)" strokeWidth={1} />
+          <text x={120} y={58} textAnchor="middle" fill="rgba(239,68,68,0.5)" fontSize={10}>×</text>
+
+          {/* Label */}
+          <text x={120} y={160} textAnchor="middle" fill="rgba(239,68,68,0.5)" fontSize={8}>
+            決定丟棄什麼
+          </text>
+        </g>
+
+        {/* Input Gate */}
+        <g>
+          <rect x={210} y={90} width={80} height={50} rx={8} fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.6)" strokeWidth={1.5} />
+          <text x={250} y={112} textAnchor="middle" fill="rgba(251,191,36,0.8)" fontSize={10} fontWeight="bold">輸入門</text>
+          <text x={250} y={128} textAnchor="middle" fill="rgba(251,191,36,0.5)" fontSize={9} fontFamily="monospace">σ × tanh</text>
+
+          {/* Connection to cell state */}
+          <line x1={250} y1={90} x2={250} y2={55} stroke="rgba(251,191,36,0.4)" strokeWidth={1.5} markerEnd="url(#arrowY)" />
+          <circle cx={250} cy={55} r={8} fill="none" stroke="rgba(251,191,36,0.4)" strokeWidth={1} />
+          <text x={250} y={58} textAnchor="middle" fill="rgba(251,191,36,0.5)" fontSize={10}>+</text>
+
+          <text x={250} y={160} textAnchor="middle" fill="rgba(251,191,36,0.5)" fontSize={8}>
+            決定記住什麼
+          </text>
+        </g>
+
+        {/* Output Gate */}
+        <g>
+          <rect x={350} y={90} width={80} height={50} rx={8} fill="rgba(96,165,250,0.15)" stroke="rgba(96,165,250,0.6)" strokeWidth={1.5} />
+          <text x={390} y={112} textAnchor="middle" fill="rgba(96,165,250,0.8)" fontSize={10} fontWeight="bold">輸出門</text>
+          <text x={390} y={128} textAnchor="middle" fill="rgba(96,165,250,0.5)" fontSize={9} fontFamily="monospace">σ × tanh(C)</text>
+
+          {/* Connection down to hidden state */}
+          <line x1={390} y1={140} x2={390} y2={205} stroke="rgba(96,165,250,0.4)" strokeWidth={1.5} markerEnd="url(#arrowB3)" />
+
+          <text x={390} y={160} textAnchor="middle" fill="rgba(96,165,250,0.5)" fontSize={8}>
+            決定輸出什麼
+          </text>
+        </g>
+
+        {/* Input arrows from bottom */}
+        <g>
+          <line x1={60} y1={220} x2={60} y2={175} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+          <line x1={60} y1={175} x2={115} y2={140} stroke="rgba(255,255,255,0.2)" strokeWidth={1} markerEnd="url(#arrowW)" />
+          <line x1={60} y1={175} x2={245} y2={140} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+          <line x1={60} y1={175} x2={385} y2={140} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+          <text x={40} y={195} fill="rgba(255,255,255,0.3)" fontSize={9}>h(t-1)</text>
+        </g>
+
+        <g>
+          <text x={480} y={195} fill="rgba(255,255,255,0.3)" fontSize={9} fontFamily="monospace">x(t)</text>
+          <line x1={480} y1={200} x2={480} y2={175} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+          <line x1={480} y1={175} x2={160} y2={140} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+          <line x1={480} y1={175} x2={290} y2={140} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+          <line x1={480} y1={175} x2={430} y2={140} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+        </g>
+
+        {/* Flow direction */}
+        <text x={w / 2} y={h - 5} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize={9}>
+          三個門控機制讓 LSTM 能選擇性地記住、遺忘和輸出資訊，解決長期依賴問題
+        </text>
+
+        <defs>
+          <marker id="arrowR" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(239,68,68,0.5)" />
+          </marker>
+          <marker id="arrowY" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(251,191,36,0.5)" />
+          </marker>
+          <marker id="arrowB3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(96,165,250,0.5)" />
+          </marker>
+          <marker id="arrowW" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,0.3)" />
+          </marker>
+        </defs>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
+// ─── 16. Softmax classification ───
+function SoftmaxDiagram({ caption }: DiagramProps) {
+  const w = 520;
+  const h = 220;
+
+  const logits = [2.0, 1.0, 0.1];
+  const labels = ["貓", "狗", "鳥"];
+  const colors = ["rgba(251,191,36,0.8)", "rgba(96,165,250,0.8)", "rgba(52,211,153,0.8)"];
+  const fills = ["rgba(251,191,36,0.15)", "rgba(96,165,250,0.15)", "rgba(52,211,153,0.15)"];
+
+  // Compute softmax
+  const maxL = Math.max(...logits);
+  const exps = logits.map((l) => Math.exp(l - maxL));
+  const sumExp = exps.reduce((a, b) => a + b, 0);
+  const probs = exps.map((e) => e / sumExp);
+
+  const barMaxH = 120;
+
+  return (
+    <DiagramWrapper caption={caption}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 240 }}>
+        {/* Logits */}
+        <text x={70} y={20} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>原始分數 (Logits)</text>
+        {logits.map((l, i) => (
+          <g key={`l${i}`}>
+            <rect x={30} y={35 + i * 45} width={80} height={32} rx={6} fill={fills[i]} stroke={colors[i]} strokeWidth={1.5} />
+            <text x={70} y={55 + i * 45} textAnchor="middle" fill={colors[i]} fontSize={14} fontFamily="monospace" fontWeight="bold">
+              {l.toFixed(1)}
+            </text>
+            <text x={10} y={55 + i * 45} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize={10}>
+              {labels[i]}
+            </text>
+          </g>
+        ))}
+
+        {/* Arrow */}
+        <g>
+          <line x1={130} y1={90} x2={190} y2={90} stroke="rgba(255,255,255,0.3)" strokeWidth={2} markerEnd="url(#arrowW2)" />
+          <text x={160} y={75} textAnchor="middle" fill="rgba(139,92,246,0.7)" fontSize={10} fontWeight="bold">
+            Softmax
+          </text>
+          <text x={160} y={110} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="monospace">
+            eˣⁱ / Σeˣ
+          </text>
+        </g>
+
+        {/* Probability bars */}
+        <text x={300} y={20} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11}>機率分佈</text>
+        {probs.map((p, i) => {
+          const barW = p * 180;
+          return (
+            <g key={`p${i}`}>
+              <rect x={210} y={35 + i * 45} width={barW} height={32} rx={6} fill={fills[i]} stroke={colors[i]} strokeWidth={1.5} />
+              <text x={215 + barW + 5} y={55 + i * 45} textAnchor="start" fill={colors[i]} fontSize={12} fontFamily="monospace" fontWeight="bold">
+                {(p * 100).toFixed(1)}%
+              </text>
+              <text x={215} y={55 + i * 45} fill={colors[i]} fontSize={11}>
+                {labels[i]}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Sum = 1 annotation */}
+        <text x={300} y={185} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9} fontFamily="monospace">
+          {probs.map((p) => (p * 100).toFixed(1) + "%").join(" + ")} = 100%
+        </text>
+
+        {/* Result */}
+        <g>
+          <line x1={395} y1={90} x2={440} y2={90} stroke="rgba(255,255,255,0.3)" strokeWidth={2} markerEnd="url(#arrowW2)" />
+          <rect x={445} y={65} width={60} height={50} rx={10} fill="rgba(251,191,36,0.2)" stroke="rgba(251,191,36,0.7)" strokeWidth={2} />
+          <text x={475} y={87} textAnchor="middle" fill="rgba(251,191,36,0.9)" fontSize={18}>
+            {labels[0]}
+          </text>
+          <text x={475} y={104} textAnchor="middle" fill="rgba(251,191,36,0.6)" fontSize={9}>
+            預測結果
+          </text>
+        </g>
+
+        <text x={w / 2} y={h - 5} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize={9}>
+          Softmax 將任意實數轉為機率分佈（總和 = 1），最大機率的類別即為預測結果
+        </text>
+
+        <defs>
+          <marker id="arrowW2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,0.4)" />
+          </marker>
+        </defs>
+      </svg>
+    </DiagramWrapper>
+  );
+}
+
 // ─── Diagram registry ───
 const DIAGRAMS: Record<string, React.FC<DiagramProps>> = {
   "single-neuron": SingleNeuron,
@@ -616,6 +1452,14 @@ const DIAGRAMS: Record<string, React.FC<DiagramProps>> = {
   "cnn-architecture": CNNArchitecture,
   "overfitting": OverfittingDiagram,
   "rnn-unrolled": RNNUnrolled,
+  "perceptron-boundary": PerceptronBoundary,
+  "loss-functions": LossFunctions,
+  "dropout": DropoutDiagram,
+  "optimizer-paths": OptimizerPaths,
+  "convolution-step": ConvolutionStep,
+  "max-pooling": MaxPoolingDiagram,
+  "lstm-gates": LSTMGates,
+  "softmax": SoftmaxDiagram,
 };
 
 export function getDiagramComponent(name: string): React.FC<DiagramProps> | null {
