@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { ParticleBackground } from "@/components/ParticleBackground";
 
 export const metadata: Metadata = {
   title: "NeuralLab - 互動式神經網路學習平台",
@@ -14,9 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-TW">
-      <body className="antialiased">
+      <body className="antialiased grid-bg">
+        <ParticleBackground />
         <Navbar />
-        <main className="pt-16">
+        <main className="pt-16 relative" style={{ zIndex: 1 }}>
           {children}
         </main>
       </body>

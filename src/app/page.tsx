@@ -50,17 +50,27 @@ export default function Home() {
     <div className="page-transition">
       {/* Hero section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--primary)]/10 via-transparent to-transparent" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 relative">
+        {/* Radial gradient blobs */}
+        <div className="absolute top-[-20%] left-[10%] w-[500px] h-[500px] rounded-full bg-[var(--primary)]/[0.04] blur-[100px]" />
+        <div className="absolute top-[-10%] right-[15%] w-[400px] h-[400px] rounded-full bg-[var(--secondary)]/[0.03] blur-[80px]" />
+        <div className="absolute bottom-0 left-[40%] w-[600px] h-[300px] rounded-full bg-[var(--accent)]/[0.02] blur-[100px]" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28 md:py-40 relative">
           <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              <span className="bg-gradient-to-r from-[var(--primary-light)] via-[var(--secondary)] to-[var(--accent)] bg-clip-text text-transparent">
+            {/* Status badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs text-[var(--foreground)]/60 mb-8 animate-border-glow">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-[pulse_2s_ease-in-out_infinite]" />
+              12 章互動式課程 · 4 個實驗沙盒 · 純前端零門檻
+            </div>
+
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight">
+              <span className="bg-gradient-to-r from-[var(--primary-light)] via-[var(--secondary)] to-[var(--accent)] bg-clip-text text-transparent glow-text">
                 從零開始
               </span>
               <br />
-              理解神經網路
+              <span className="text-[var(--foreground)]">理解神經網路</span>
             </h1>
-            <p className="text-lg md:text-xl text-[var(--foreground)]/70 mb-8 leading-relaxed">
+            <p className="text-lg md:text-xl text-[var(--foreground)]/50 mb-10 leading-relaxed max-w-2xl mx-auto">
               透過互動式視覺化與實作編程，深入理解深度學習的核心概念。
               <br />
               不只是讀理論——親手建構你的第一個神經網路。
@@ -68,73 +78,101 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/tutorials/chapter/1"
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--primary-light)] text-white font-semibold hover:opacity-90 transition-opacity"
+                className="group relative px-8 py-3.5 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--primary-light)] text-white font-semibold transition-all hover:shadow-[0_0_30px_-5px_var(--glow-primary)] hover:scale-[1.02]"
               >
-                開始學習
+                <span className="relative z-10">開始學習</span>
               </Link>
               <Link
                 href="/sandbox"
-                className="px-8 py-3 rounded-xl border border-[var(--border)] text-[var(--foreground)] font-semibold hover:bg-[var(--surface-light)] transition-colors"
+                className="px-8 py-3.5 rounded-xl glass text-[var(--foreground)] font-semibold hover:border-[var(--primary)]/30 transition-all hover:shadow-[0_0_20px_-8px_var(--glow-primary)]"
               >
                 體驗沙盒
               </Link>
+            </div>
+
+            {/* Tech decoration */}
+            <div className="mt-16 flex items-center justify-center gap-8 text-[var(--foreground)]/15 text-xs font-mono">
+              <span>INPUT</span>
+              <span className="w-12 h-px bg-gradient-to-r from-[var(--primary)]/30 to-transparent" />
+              <span className="w-2 h-2 rounded-full border border-[var(--primary)]/30" />
+              <span className="w-8 h-px bg-[var(--primary)]/20" />
+              <span className="w-2 h-2 rounded-full border border-[var(--secondary)]/30" />
+              <span className="w-8 h-px bg-[var(--secondary)]/20" />
+              <span className="w-2 h-2 rounded-full border border-[var(--accent)]/30" />
+              <span className="w-12 h-px bg-gradient-to-l from-[var(--accent)]/30 to-transparent" />
+              <span>OUTPUT</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          {features.map((f) => (
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="grid md:grid-cols-3 gap-6">
+          {features.map((f, i) => (
             <div
               key={f.title}
-              className="p-6 rounded-2xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)]/50 transition-colors"
+              className="relative p-6 rounded-2xl glass glow-border corner-bracket transition-all duration-300 group"
+              style={{ animationDelay: `${i * 0.15}s` }}
             >
-              <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/20 text-[var(--primary-light)] flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 text-[var(--primary-light)] flex items-center justify-center mb-4 group-hover:bg-[var(--primary)]/20 transition-colors">
                 {f.icon}
               </div>
               <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
-              <p className="text-sm text-[var(--foreground)]/60 leading-relaxed">{f.desc}</p>
+              <p className="text-sm text-[var(--foreground)]/45 leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Course outline */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-3xl font-bold text-center mb-4">課程大綱</h2>
-        <p className="text-center text-[var(--foreground)]/60 mb-12 max-w-2xl mx-auto">
-          12 個章節帶你從零基礎到能獨立建構神經網路
-        </p>
-        <div className="max-w-3xl mx-auto space-y-4">
-          {chapters.map((ch) => (
-            <Link
-              key={ch.id}
-              href={`/tutorials/chapter/${ch.id}`}
-              className="flex items-center gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)]/50 transition-colors group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/20 flex items-center justify-center text-lg shrink-0">
-                {ch.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold group-hover:text-[var(--primary-light)] transition-colors">
-                  第 {ch.id} 章：{ch.title}
-                </h3>
-                <p className="text-sm text-[var(--foreground)]/50">{ch.desc}</p>
-              </div>
-              <svg className="w-5 h-5 text-[var(--foreground)]/30 group-hover:text-[var(--primary-light)] transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          ))}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <span className="bg-gradient-to-r from-[var(--foreground)] to-[var(--foreground)]/60 bg-clip-text text-transparent">課程大綱</span>
+          </h2>
+          <p className="text-[var(--foreground)]/40 max-w-2xl mx-auto">
+            12 個章節帶你從零基礎到能獨立建構神經網路
+          </p>
+        </div>
+
+        <div className="max-w-3xl mx-auto relative">
+          {/* Timeline line */}
+          <div className="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-[var(--primary)]/20 via-[var(--secondary)]/15 to-[var(--accent)]/10" />
+
+          <div className="space-y-3">
+            {chapters.map((ch) => (
+              <Link
+                key={ch.id}
+                href={`/tutorials/chapter/${ch.id}`}
+                className="relative flex items-center gap-4 p-4 rounded-xl glass hover:border-[var(--primary)]/25 transition-all duration-200 group hover:shadow-[0_0_20px_-8px_var(--glow-primary)]"
+              >
+                {/* Timeline dot */}
+                <div className="w-[14px] h-[14px] rounded-full border-2 border-[var(--border)] bg-[var(--background)] group-hover:border-[var(--primary)]/50 group-hover:shadow-[0_0_8px_var(--glow-primary)] transition-all shrink-0 z-10" />
+
+                <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center text-lg shrink-0 group-hover:bg-[var(--primary)]/15 transition-colors">
+                  {ch.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold group-hover:text-[var(--primary-light)] transition-colors text-sm md:text-base">
+                    <span className="text-[var(--foreground)]/30 font-mono text-xs mr-2">{String(ch.id).padStart(2, "0")}</span>
+                    {ch.title}
+                  </h3>
+                  <p className="text-xs md:text-sm text-[var(--foreground)]/35">{ch.desc}</p>
+                </div>
+                <svg className="w-4 h-4 text-[var(--foreground)]/20 group-hover:text-[var(--primary-light)] group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--border)] mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-sm text-[var(--foreground)]/40">
-          NeuralLab — 互動式神經網路學習平台
+      <footer className="border-t border-[var(--border)]/50 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-xs text-[var(--foreground)]/25 font-mono">
+          NEURALLAB // 互動式神經網路學習平台
         </div>
       </footer>
     </div>
