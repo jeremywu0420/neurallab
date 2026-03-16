@@ -1624,12 +1624,8 @@ XOR 真值表：
 4. **反向傳播 + 梯度下降**（第六章）`,
       },
       {
-        type: "code",
-        language: "javascript",
-        content: `// ========================================
-// 完整的神經網路：從零開始
-// ========================================
-
+        type: "code-step",
+        content: `// 完整的神經網路：從零開始
 function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
 function sigmoidDeriv(out) { return out * (1 - out); }
 
@@ -1664,8 +1660,6 @@ class NeuralNetwork {
 
   train(input, target, lr = 0.5) {
     const output = this.forward(input);
-
-    // 計算各層的 delta
     const deltas = [];
     for (let l = this.weights.length - 1; l >= 0; l--) {
       const layerOutput = this.activations[l + 1];
@@ -1682,8 +1676,6 @@ class NeuralNetwork {
       });
       deltas.unshift(delta);
     }
-
-    // 更新權重和偏差
     for (let l = 0; l < this.weights.length; l++) {
       for (let i = 0; i < this.weights[l].length; i++) {
         for (let j = 0; j < this.weights[l][i].length; j++) {
@@ -1692,14 +1684,11 @@ class NeuralNetwork {
         this.biases[l][i] -= lr * deltas[l][i];
       }
     }
-
     return output.reduce((s, o, i) => s + (o - target[i]) ** 2, 0) / 2;
   }
 }
 
-// 建構 2→4→1 網路
 const nn = new NeuralNetwork([2, 4, 1]);
-
 const xorData = [
   { input: [0, 0], target: [0] },
   { input: [0, 1], target: [1] },
@@ -1707,14 +1696,130 @@ const xorData = [
   { input: [1, 1], target: [0] },
 ];
 
-// 訓練
+for (let epoch = 0; epoch <= 10000; epoch++) {
+  let totalLoss = 0;
+  for (const d of xorData) totalLoss += nn.train(d.input, d.target);
+  if (epoch % 2000 === 0)
+    console.log(\`Epoch \${epoch}: Loss = \${totalLoss.toFixed(6)}\`);
+}
+
+for (const d of xorData) {
+  const pred = nn.forward(d.input);
+  console.log(\`[\${d.input}] → \${pred[0].toFixed(4)} (期望: \${d.target[0]})\`);
+}`,
+        steps: [
+          {
+            title: "步驟一：整體架構 — 從陣列描述網路",
+            code: "class NeuralNetwork {\n  constructor(layers) {\n    // layers = [2, 4, 1] 代表：\n    //   輸入層: 2 個節點\n    //   隱藏層: 4 個神經元\n    //   輸出層: 1 個神經元\n    this.weights = []; // 每層之間的權重矩陣\n    this.biases = [];  // 每層的偏差向量\n  }\n}",
+            explanation: "和第四章的 Layer 類別不同，這次我們要用一個 class 管理「整個網路」。\n\n關鍵設計：用一個陣列 layers 來描述網路結構：\n• [2, 4, 1] → 2 個輸入、4 個隱藏神經元、1 個輸出\n• [3, 8, 8, 2] → 3 個輸入、兩個 8 神經元隱藏層、2 個輸出\n\n這樣的設計讓我們只要改一行就能實驗不同架構！\n\nweights 和 biases 是陣列的陣列：\n• weights[0] = 輸入層到第一隱藏層的權重矩陣\n• weights[1] = 第一隱藏層到輸出層的權重矩陣\n• biases[0] = 第一隱藏層的偏差\n• biases[1] = 輸出層的偏差\n\n連接數 = layers.length - 1（兩層之間才有連接）"
+          },
+          {
+            title: "步驟二：Xavier 初始化所有層",
+            code: "for (let i = 0; i < layers.length - 1; i++) {\n  const scale = Math.sqrt(2 / (layers[i] + layers[i + 1]));\n  this.weights.push(\n    Array.from({ length: layers[i + 1] }, () =>\n      Array.from({ length: layers[i] },\n        () => (Math.random() * 2 - 1) * scale\n      )\n    )\n  );\n  this.biases.push(new Array(layers[i + 1]).fill(0));\n}",
+            explanation: "用 for 迴圈自動初始化每一對相鄰層之間的權重。\n\n以 [2, 4, 1] 為例：\n\n第 0 次迴圈（i=0，輸入層→隱藏層）：\n  scale = √(2/(2+4)) = √0.333 ≈ 0.577\n  weights[0] = 4×2 矩陣（4 個神經元，各 2 個權重）\n  biases[0] = [0, 0, 0, 0]（4 個偏差）\n\n第 1 次迴圈（i=1，隱藏層→輸出層）：\n  scale = √(2/(4+1)) = √0.4 ≈ 0.632\n  weights[1] = 1×4 矩陣（1 個神經元，4 個權重）\n  biases[1] = [0]（1 個偏差）\n\n不管網路有多少層，這個迴圈都能正確初始化。\n試試 [2, 8, 4, 1]（三層隱藏結構）也完全適用！"
+          },
+          {
+            title: "步驟三：前向傳播 — 逐層計算",
+            code: "forward(input) {\n  this.activations = [input]; // 存所有層的輸出\n  let current = input;\n\n  for (let l = 0; l < this.weights.length; l++) {\n    current = this.weights[l].map((w, i) => {\n      let sum = this.biases[l][i];\n      for (let j = 0; j < current.length; j++)\n        sum += w[j] * current[j];\n      return sigmoid(sum);\n    });\n    this.activations.push(current);\n  }\n  return current;\n}",
+            explanation: "前向傳播就是把資料從左到右傳過每一層。\n\nthis.activations 存了每一層的輸出（含輸入層）：\n  activations[0] = 原始輸入\n  activations[1] = 隱藏層輸出\n  activations[2] = 最終輸出\n\n以 input=[1, 0]、layers=[2, 4, 1] 為例：\n\n第 0 層（輸入→隱藏）：\n  current = [1, 0]\n  對 4 個隱藏神經元分別做加權求和 + sigmoid\n  得到 current = [0.62, 0.53, 0.71, 0.45]（舉例）\n  activations = [[1,0], [0.62, 0.53, 0.71, 0.45]]\n\n第 1 層（隱藏→輸出）：\n  對 1 個輸出神經元做加權求和 + sigmoid\n  得到 current = [0.58]\n  activations = [[1,0], [0.62, 0.53, 0.71, 0.45], [0.58]]\n\n為什麼要存 activations？反向傳播的每個公式都需要用到！"
+          },
+          {
+            title: "步驟四：反向傳播 — 從後往前計算梯度",
+            code: "train(input, target, lr = 0.5) {\n  const output = this.forward(input);\n\n  const deltas = [];\n  for (let l = this.weights.length - 1; l >= 0; l--) {\n    const layerOutput = this.activations[l + 1];\n    const delta = layerOutput.map((o, i) => {\n      if (l === this.weights.length - 1) {\n        // 輸出層\n        return (o - target[i]) * sigmoidDeriv(o);\n      } else {\n        // 隱藏層：用鏈式法則從後面傳回來\n        let err = 0;\n        for (let j = 0; j < deltas[0].length; j++) {\n          err += deltas[0][j] * this.weights[l + 1][j][i];\n        }\n        return err * sigmoidDeriv(o);\n      }\n    });\n    deltas.unshift(delta);\n  }",
+            explanation: "這是第六章反向傳播的通用版本，能處理任意層數！\n\n核心思路：從最後一層往前算，每層計算一個 delta 陣列。\n\n迴圈是倒著走的：l = 最後一層, ..., 0\n\n對每一層的每個神經元：\n\n▶ 如果是輸出層（l === 最後一層）：\n  delta = (預測 - 目標) × sigmoid導數\n  這和第六章完全一樣。\n\n▶ 如果是隱藏層：\n  delta = (Σ 後一層的delta × 連接權重) × sigmoid導數\n  就是鏈式法則！把後面的錯誤「往回傳」。\n\ndeltas.unshift(delta) — 插到陣列最前面。\n因為我們是倒著算的，但 deltas[0] 應該對應第一層。\n\n最終 deltas 陣列和 weights 陣列一一對應：\n  deltas[0] → weights[0] 的更新依據\n  deltas[1] → weights[1] 的更新依據"
+          },
+          {
+            title: "步驟五：更新所有權重和偏差",
+            code: "  for (let l = 0; l < this.weights.length; l++) {\n    for (let i = 0; i < this.weights[l].length; i++) {\n      for (let j = 0; j < this.weights[l][i].length; j++) {\n        this.weights[l][i][j] -= lr * deltas[l][i]\n                                   * this.activations[l][j];\n      }\n      this.biases[l][i] -= lr * deltas[l][i];\n    }\n  }\n\n  // 回傳損失值\n  return output.reduce((s, o, i) =>\n    s + (o - target[i]) ** 2, 0\n  ) / 2;\n}",
+            explanation: "有了 deltas，更新權重就是三層巢狀迴圈：\n\n• l — 哪一對層之間的連接\n• i — 這一層的第幾個神經元\n• j — 上一層的第幾個節點\n\n更新公式：\n  w[l][i][j] -= lr × delta[l][i] × activation[l][j]\n\n三個因素的直覺：\n• lr — 學習步伐\n• delta[l][i] — 這個神經元該負的「責任」\n• activation[l][j] — 上一層第 j 個節點輸出了多少\n  （如果上一層輸出 0，那這個連接不用調）\n\n偏差更新不乘 activation（偏差對應的「輸入」永遠是 1）。\n\n最後計算 MSE 損失回傳，讓外面能追蹤訓練進度。\n\n關鍵認知：這三層迴圈就是整個神經網路「學習」的地方。\n前向傳播是「思考」，這裡是「反思並改進」。"
+          },
+          {
+            title: "步驟六：訓練 XOR — 看它學會！",
+            code: "const nn = new NeuralNetwork([2, 4, 1]);\nconst xorData = [\n  { input: [0, 0], target: [0] },\n  { input: [0, 1], target: [1] },\n  { input: [1, 0], target: [1] },\n  { input: [1, 1], target: [0] },\n];\n\nfor (let epoch = 0; epoch <= 10000; epoch++) {\n  let totalLoss = 0;\n  for (const d of xorData)\n    totalLoss += nn.train(d.input, d.target);\n}",
+            explanation: "終於到了見證奇蹟的時刻！我們用 NeuralNetwork([2, 4, 1]) 來解決 XOR。\n\n為什麼是 [2, 4, 1]？\n• 2 個輸入：XOR 的兩個位元\n• 4 個隱藏神經元：XOR 是非線性問題，需要足夠的神經元來創造「彎曲」的決策邊界\n• 1 個輸出：XOR 的結果（0 或 1）\n\n訓練 10000 個 epoch：\n  每個 epoch 遍歷全部 4 筆訓練資料。\n  每筆資料都做一次前向+反向+更新。\n  所以總共更新了 40000 次權重！\n\n你應該會看到 Loss 從 ~0.5 逐漸降到接近 0。\n\n重要觀察：\n• 有時候訓練會卡住（Loss 不再下降）— 這是局部最小值\n• 重新執行可能會得到不同結果 — 因為初始權重是隨機的\n• 試試改成 [2, 8, 1] 或 [2, 4, 4, 1] 看看有什麼不同！\n\n恭喜！你已經從零建構了一個能學習的神經網路！"
+          }
+        ],
+      },
+      {
+        type: "code",
+        language: "javascript",
+        content: `// 完整版 — 可直接執行
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function sigmoidDeriv(out) { return out * (1 - out); }
+
+class NeuralNetwork {
+  constructor(layers) {
+    this.weights = [];
+    this.biases = [];
+    for (let i = 0; i < layers.length - 1; i++) {
+      const scale = Math.sqrt(2 / (layers[i] + layers[i + 1]));
+      this.weights.push(
+        Array.from({ length: layers[i + 1] }, () =>
+          Array.from({ length: layers[i] }, () => (Math.random() * 2 - 1) * scale)
+        )
+      );
+      this.biases.push(new Array(layers[i + 1]).fill(0));
+    }
+  }
+
+  forward(input) {
+    this.activations = [input];
+    let current = input;
+    for (let l = 0; l < this.weights.length; l++) {
+      current = this.weights[l].map((w, i) => {
+        let sum = this.biases[l][i];
+        for (let j = 0; j < current.length; j++) sum += w[j] * current[j];
+        return sigmoid(sum);
+      });
+      this.activations.push(current);
+    }
+    return current;
+  }
+
+  train(input, target, lr = 0.5) {
+    const output = this.forward(input);
+    const deltas = [];
+    for (let l = this.weights.length - 1; l >= 0; l--) {
+      const layerOutput = this.activations[l + 1];
+      const delta = layerOutput.map((o, i) => {
+        if (l === this.weights.length - 1) {
+          return (o - target[i]) * sigmoidDeriv(o);
+        } else {
+          let err = 0;
+          for (let j = 0; j < deltas[0].length; j++) {
+            err += deltas[0][j] * this.weights[l + 1][j][i];
+          }
+          return err * sigmoidDeriv(o);
+        }
+      });
+      deltas.unshift(delta);
+    }
+    for (let l = 0; l < this.weights.length; l++) {
+      for (let i = 0; i < this.weights[l].length; i++) {
+        for (let j = 0; j < this.weights[l][i].length; j++) {
+          this.weights[l][i][j] -= lr * deltas[l][i] * this.activations[l][j];
+        }
+        this.biases[l][i] -= lr * deltas[l][i];
+      }
+    }
+    return output.reduce((s, o, i) => s + (o - target[i]) ** 2, 0) / 2;
+  }
+}
+
+const nn = new NeuralNetwork([2, 4, 1]);
+const xorData = [
+  { input: [0, 0], target: [0] },
+  { input: [0, 1], target: [1] },
+  { input: [1, 0], target: [1] },
+  { input: [1, 1], target: [0] },
+];
+
 console.log("開始訓練 XOR 神經網路...");
 for (let epoch = 0; epoch <= 10000; epoch++) {
   let totalLoss = 0;
   for (const d of xorData) totalLoss += nn.train(d.input, d.target);
-  if (epoch % 2000 === 0) {
+  if (epoch % 2000 === 0)
     console.log(\`Epoch \${epoch.toString().padStart(5)}: Loss = \${totalLoss.toFixed(6)}\`);
-  }
 }
 
 console.log("\\n=== 最終結果 ===");
@@ -1724,7 +1829,7 @@ for (const d of xorData) {
   const correct = rounded === d.target[0] ? "✓" : "✗";
   console.log(\`[\${d.input}] → \${pred[0].toFixed(4)} ≈ \${rounded} (期望: \${d.target[0]}) \${correct}\`);
 }`,
-        explanation: "這是一個完整的神經網路實作！它使用 Xavier 初始化、Sigmoid 激活函數、MSE 損失函數和反向傳播來學習 XOR 問題。訓練 10000 次後，應該能正確分類所有 XOR 輸入。",
+        explanation: "這是上方逐步解析的完整可執行版本。點擊執行，觀察 Loss 如何逐漸下降，以及最終 XOR 預測結果！試著改成 [2, 8, 1] 或調整學習率看看效果。",
       },
       {
         type: "quiz",
@@ -2501,9 +2606,9 @@ for (let i = 0; i < sgdLoss.length; i++) {
             explanation: "所有優化器都需要梯度。getGradients 函數：\n\n1. 前向傳播得到預測值\n2. 計算輸出誤差 dOut\n3. 反向傳播計算每個權重的梯度\n4. 回傳所有梯度和損失值\n\n三種優化器的差別不在於「如何計算梯度」，而在於「如何利用梯度來更新權重」。"
           },
           {
-            title: "步驟二：Vanilla SGD",
-            code: "// Vanilla SGD — 直接用梯度更新\nnet.w1[j][i] -= lr * g.gw1[j][i];",
-            explanation: "最基本的梯度下降：直接用梯度乘以學習率來更新權重。\n\n簡單直接，但容易震盪、收斂慢。"
+            title: "步驟二：Vanilla SGD — 最基礎的方法",
+            code: "// Vanilla SGD — 直接用梯度更新\nfor (let j = 0; j < net.w1.length; j++) {\n  for (let i = 0; i < net.w1[j].length; i++) {\n    net.w1[j][i] -= lr * g.gw1[j][i];\n  }\n}\n// 所有權重和偏差都用同樣的公式\n// w_new = w_old - lr × gradient",
+            explanation: "Vanilla SGD 就是最樸素的梯度下降：\n\n  w_new = w_old - lr × gradient\n\n每個權重的更新只看「這一次的梯度」，不記憶任何歷史資訊。\n\n優點：\n• 實作最簡單，只需一行核心程式碼\n• 不需要額外記憶體\n\n缺點：\n• 容易震盪 — 如果損失曲面像一個狹長的山谷，SGD 會在山谷的兩壁之間來回彈跳，而不是沿著山谷方向前進\n• 所有參數使用相同的學習率 — 但有些參數可能需要大步走，有些需要小步走\n• 容易卡在鞍點 — 梯度接近 0 但不是最小值的地方\n\n為什麼會震盪？\n想像一個橢圓形的碗，你在碗壁上。梯度指向碗底，但因為一個方向很陡、另一個方向很平緩，你會在陡的方向上來回過頭，卻在平緩的方向上進展緩慢。\n\n這就是為什麼我們需要 Momentum 和 Adam——它們用不同的方式解決這個問題。"
           },
           {
             title: "步驟三：Momentum SGD",
