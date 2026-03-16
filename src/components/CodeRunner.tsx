@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { HighlightedEditor } from "./SyntaxHighlighter";
 
 interface CodeRunnerProps {
   initialCode: string;
@@ -13,7 +14,6 @@ export function CodeRunner({ initialCode, explanation, height = "auto" }: CodeRu
   const [output, setOutput] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const runCode = useCallback(() => {
     setIsRunning(true);
@@ -53,8 +53,6 @@ export function CodeRunner({ initialCode, explanation, height = "auto" }: CodeRu
     setCode(initialCode);
     setOutput("");
   };
-
-  const lineCount = code.split("\n").length;
 
   return (
     <div className="rounded-2xl border border-[var(--border)] overflow-hidden bg-[var(--surface)]">
@@ -100,25 +98,13 @@ export function CodeRunner({ initialCode, explanation, height = "auto" }: CodeRu
         </div>
       )}
 
-      {/* Code editor */}
-      <div className="relative code-editor" style={{ height: height === "auto" ? undefined : height }}>
-        <div className="flex">
-          {/* Line numbers */}
-          <div className="select-none text-right pr-3 pl-3 py-4 text-[var(--foreground)]/20 text-sm leading-[1.6] border-r border-[var(--border)] bg-[var(--surface)]">
-            {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i}>{i + 1}</div>
-            ))}
-          </div>
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            spellCheck={false}
-            className="flex-1 p-4 bg-transparent text-[var(--foreground)] font-mono text-sm leading-[1.6] resize-none outline-none min-h-[200px]"
-            style={{ tabSize: 2 }}
-          />
-        </div>
+      {/* Code editor with syntax highlighting */}
+      <div style={{ height: height === "auto" ? undefined : height }}>
+        <HighlightedEditor
+          code={code}
+          onChange={setCode}
+          minHeight="200px"
+        />
       </div>
 
       {/* Output */}

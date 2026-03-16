@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { TutorialSection, CodeStep, CodingExercise } from "@/lib/tutorials";
 import { CodeRunner } from "./CodeRunner";
 import { DiagramSection } from "./TutorialDiagrams";
+import { HighlightedCode, HighlightedEditor } from "./SyntaxHighlighter";
 
 function TextSection({ content }: { content: string }) {
   const lines = content.split("\n");
@@ -11,6 +12,10 @@ function TextSection({ content }: { content: string }) {
   let currentParagraph: string[] = [];
   let listItems: string[] = [];
   let inList = false;
+  let inCodeBlock = false;
+  let codeBlockLines: string[] = [];
+  let inTable = false;
+  let tableRows: string[][] = [];
 
   const flushParagraph = () => {
     if (currentParagraph.length > 0) {
@@ -40,8 +45,83 @@ function TextSection({ content }: { content: string }) {
     }
   };
 
-  for (const line of lines) {
+  const flushTable = () => {
+    if (tableRows.length > 0) {
+      const header = tableRows[0];
+      const body = tableRows.slice(2); // skip separator row
+      elements.push(
+        <div key={elements.length} className="my-4 overflow-x-auto rounded-lg border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[var(--surface-light)]">
+                {header.map((cell, ci) => (
+                  <th key={ci} className="px-4 py-2 text-left font-semibold text-[var(--foreground)]/70 border-b border-[var(--border)]">
+                    {cell.trim()}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {body.map((row, ri) => (
+                <tr key={ri} className="border-b border-[var(--border)]/50 last:border-0">
+                  {row.map((cell, ci) => (
+                    <td key={ci} className="px-4 py-2 text-[var(--foreground)]/60">
+                      <FormattedText text={cell.trim()} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableRows = [];
+      inTable = false;
+    }
+  };
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
     const trimmed = line.trim();
+
+    // Code blocks
+    if (trimmed.startsWith("```")) {
+      if (inCodeBlock) {
+        // End code block — render with syntax highlighting
+        const codeContent = codeBlockLines.join("\n");
+        elements.push(
+          <div key={elements.length} className="my-4 rounded-lg border border-[var(--border)] bg-[var(--surface-light)] overflow-hidden">
+            <div className="p-4">
+              <HighlightedCode code={codeContent} />
+            </div>
+          </div>
+        );
+        codeBlockLines = [];
+        inCodeBlock = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockLines.push(line);
+      continue;
+    }
+
+    // Table rows
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      flushParagraph();
+      flushList();
+      inTable = true;
+      const cells = trimmed.split("|").slice(1, -1);
+      tableRows.push(cells);
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
 
     if (trimmed.startsWith("## ")) {
       flushParagraph();
@@ -73,8 +153,8 @@ function TextSection({ content }: { content: string }) {
       flushParagraph();
       flushList();
       elements.push(
-        <div key={elements.length} className="my-4 p-4 rounded-lg bg-[var(--surface-light)] border border-[var(--border)] font-mono text-sm text-[var(--secondary)] overflow-x-auto">
-          {trimmed.slice(1, -1)}
+        <div key={elements.length} className="my-4 p-4 rounded-lg bg-[var(--surface-light)] border border-[var(--border)] overflow-x-auto">
+          <HighlightedCode code={trimmed.slice(1, -1)} />
         </div>
       );
     } else if (trimmed === "") {
@@ -88,6 +168,7 @@ function TextSection({ content }: { content: string }) {
 
   flushParagraph();
   flushList();
+  if (inTable) flushTable();
 
   return <div>{elements}</div>;
 }
@@ -229,15 +310,11 @@ function CodeStepSection({ fullCode, steps }: { fullCode: string; steps: CodeSte
         </div>
       </div>
 
-      {/* Code display */}
-      <div className="relative">
-        <pre className="p-4 text-sm font-mono leading-[1.6] overflow-x-auto text-[var(--foreground)]/90">
-          <code>
-            {currentStep === -1
-              ? fullCode
-              : steps[currentStep].code}
-          </code>
-        </pre>
+      {/* Code display with syntax highlighting */}
+      <div className="relative p-4">
+        <HighlightedCode
+          code={currentStep === -1 ? fullCode : steps[currentStep].code}
+        />
       </div>
 
       {/* Step explanation */}
@@ -296,7 +373,6 @@ function CodingExerciseSection({ exercise }: { exercise: CodingExercise }) {
   const [testResults, setTestResults] = useState<{ passed: boolean; input: string; expected: string; got: string }[]>([]);
   const [showHint, setShowHint] = useState(-1);
   const [showSolution, setShowSolution] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const runTests = useCallback(() => {
     const logs: string[] = [];
@@ -351,7 +427,6 @@ function CodingExerciseSection({ exercise }: { exercise: CodingExercise }) {
     setTestResults(results);
   }, [code, exercise.testCases]);
 
-  const lineCount = code.split("\n").length;
   const allPassed = testResults.length > 0 && testResults.every((r) => r.passed);
 
   return (
@@ -372,23 +447,13 @@ function CodingExerciseSection({ exercise }: { exercise: CodingExercise }) {
         <p className="text-sm text-[var(--foreground)]/70 mt-1 whitespace-pre-line">{exercise.description}</p>
       </div>
 
-      {/* Code editor */}
-      <div className="relative code-editor">
-        <div className="flex">
-          <div className="select-none text-right pr-3 pl-3 py-4 text-[var(--foreground)]/20 text-sm leading-[1.6] border-r border-[var(--border)] bg-[var(--surface)]">
-            {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i}>{i + 1}</div>
-            ))}
-          </div>
-          <textarea
-            ref={textareaRef}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            spellCheck={false}
-            className="flex-1 p-4 bg-transparent text-[var(--foreground)] font-mono text-sm leading-[1.6] resize-none outline-none min-h-[200px]"
-            style={{ tabSize: 2 }}
-          />
-        </div>
+      {/* Code editor with syntax highlighting */}
+      <div className="relative">
+        <HighlightedEditor
+          code={code}
+          onChange={setCode}
+          minHeight="200px"
+        />
       </div>
 
       {/* Action bar */}
@@ -442,9 +507,9 @@ function CodingExerciseSection({ exercise }: { exercise: CodingExercise }) {
           <div className="px-4 py-2 text-xs text-[var(--foreground)]/40 bg-[var(--surface-light)]">
             參考答案
           </div>
-          <pre className="p-4 text-sm font-mono text-[var(--foreground)]/70 overflow-x-auto whitespace-pre-wrap bg-[var(--surface)]">
-            {exercise.solution}
-          </pre>
+          <div className="p-4 bg-[var(--surface)]">
+            <HighlightedCode code={exercise.solution} />
+          </div>
         </div>
       )}
 

@@ -370,19 +370,29 @@ console.log(myNeuron([1, 0, 1], [0.3, 0.3, 0.3], 0.1));`,
 }`,
         steps: [
           {
-            title: "步驟一：建構子 — 初始化權重",
+            title: "步驟一：class 宣告",
+            code: "class Perceptron {\n  // 感知器 = 最簡單的學習機器\n  // 它只有一層，能學會線性分類\n}",
+            explanation: "我們用 JavaScript 的 class 語法來建立感知器。\n\n為什麼要用 class？因為感知器需要：\n• 記住自己的權重和偏差（資料）\n• 有預測功能（方法）\n• 有學習功能（方法）\n\n把這些打包成一個 class，就能輕鬆建立多個感知器。\n\n接下來的步驟會依序實作三個核心部分：\n1. constructor — 初始化\n2. predict — 前向計算\n3. train — 學習更新"
+          },
+          {
+            title: "步驟二：建構子 — 初始化權重",
             code: "constructor(inputSize, learningRate = 0.1) {\n  this.weights = Array.from(\n    { length: inputSize },\n    () => Math.random() * 2 - 1\n  );\n  this.bias = Math.random() * 2 - 1;\n  this.lr = learningRate;\n}",
-            explanation: "建構子接收輸入數量和學習率。\n\n• weights 陣列的長度等於輸入數量，每個權重隨機初始化在 -1 到 1 之間\n• bias 也隨機初始化在 -1 到 1 之間\n• lr 是學習率（learning rate），控制每次學習的步伐大小\n\n為什麼要隨機初始化？如果所有權重都是 0，感知器就沒有辦法區分不同輸入的重要性，學習就會卡住。"
+            explanation: "建構子決定了感知器的「出生狀態」。\n\n參數：\n• inputSize — 有幾個輸入（例如 2 個，代表 x₁ 和 x₂）\n• learningRate — 學習步伐大小（預設 0.1）\n\n初始化：\n• weights 陣列長度 = inputSize\n  每個權重 = Math.random() * 2 - 1\n  → 產生 -1 到 +1 之間的隨機數\n  → 例如 [0.34, -0.72]\n\n• bias 也隨機初始化在 -1 到 +1 之間\n\n為什麼隨機？\n如果全部設為 0，感知器根本不知道往哪個方向調整。\n隨機值給它一個起點，讓學習算法能找到正確方向。"
           },
           {
-            title: "步驟二：predict — 預測函數",
+            title: "步驟三：predict — 前向計算",
             code: "predict(inputs) {\n  let sum = this.bias;\n  for (let i = 0; i < inputs.length; i++) {\n    sum += inputs[i] * this.weights[i];\n  }\n  return sum >= 0 ? 1 : 0;\n}",
-            explanation: "預測函數就是前面學到的「神經元」運算：\n\n1. 從 bias 開始（不是從 0 開始，這樣更簡潔）\n2. 遍歷每個輸入，乘以對應權重並加到 sum\n3. 最後用階梯函數：sum ≥ 0 → 1，否則 → 0\n\n這個函數不會改變任何權重，純粹是「看看目前的感知器會怎麼判斷」。"
+            explanation: "predict 就是「拿現在的權重算一算，看看答案是什麼」。\n\n計算過程（假設 weights=[0.5, -0.3], bias=0.1）：\n\n輸入 [1, 0]:\n  sum = 0.1（bias）\n  sum += 1 × 0.5 = 0.6\n  sum += 0 × (-0.3) = 0.6\n  0.6 ≥ 0 → 輸出 1\n\n輸入 [0, 1]:\n  sum = 0.1\n  sum += 0 × 0.5 = 0.1\n  sum += 1 × (-0.3) = -0.2\n  -0.2 < 0 → 輸出 0\n\n注意：predict 不會修改任何權重。\n它是純粹的「讀取」操作，問感知器「你覺得答案是什麼？」"
           },
           {
-            title: "步驟三：train — 學習函數",
-            code: "train(inputs, target) {\n  const prediction = this.predict(inputs);\n  const error = target - prediction;\n  for (let i = 0; i < this.weights.length; i++) {\n    this.weights[i] += this.lr * error * inputs[i];\n  }\n  this.bias += this.lr * error;\n  return error;\n}",
-            explanation: "這是感知器學習的核心！\n\n1. 先用 predict 得到目前的預測結果\n2. 計算誤差 error = 正確答案 - 預測結果\n   • 預測正確：error = 0，不更新\n   • 預測 0 但正確答案是 1：error = 1，增加權重\n   • 預測 1 但正確答案是 0：error = -1，減少權重\n3. 用公式更新每個權重：w += lr × error × input\n4. 同樣更新偏差：b += lr × error\n\n學習率 lr 控制每次調整的幅度。太大會震盪，太小會學得慢。"
+            title: "步驟四：train — 計算誤差",
+            code: "train(inputs, target) {\n  const prediction = this.predict(inputs);\n  const error = target - prediction;\n  // error 的含義：\n  //   0 = 預測正確（不需更新）\n  //   1 = 預測 0 但答案是 1（要加大權重）\n  //  -1 = 預測 1 但答案是 0（要減小權重）",
+            explanation: "train 方法是學習的核心，它接收：\n• inputs — 訓練樣本的輸入\n• target — 正確答案（0 或 1）\n\n第一步：用 predict 看看現在的答案\n第二步：計算 error = target - prediction\n\n三種情況：\n\n1. prediction=1, target=1 → error=0（答對了！不更新）\n2. prediction=0, target=0 → error=0（答對了！不更新）\n3. prediction=0, target=1 → error=+1（漏報！需要增加權重讓 sum 變大）\n4. prediction=1, target=0 → error=-1（誤報！需要減少權重讓 sum 變小）\n\nerror 的正負號自動指示了「應該朝哪個方向調整」。"
+          },
+          {
+            title: "步驟五：train — 更新權重",
+            code: "  for (let i = 0; i < this.weights.length; i++) {\n    this.weights[i] += this.lr * error * inputs[i];\n  }\n  this.bias += this.lr * error;\n  return error;\n}",
+            explanation: "用感知器學習法則更新每個權重：\n\n  w_new = w_old + lr × error × input\n\n三個因素的意義：\n• lr（學習率）— 步伐多大，例如 0.1\n• error — 方向（+1 要增大，-1 要減小，0 不動）\n• input — 這個輸入的值\n\n為什麼要乘 input？\n如果 input=0，這個權重根本沒有參與計算，調它沒意義。\n如果 input=1，這個權重影響很大，需要調整。\n\n手動算一下（lr=0.1, error=1, inputs=[1, 0]）：\n  w[0] += 0.1 × 1 × 1 = +0.1（增加！因為這個輸入有值）\n  w[1] += 0.1 × 1 × 0 = 0（不動！因為這個輸入是 0）\n  bias += 0.1 × 1 = +0.1（偏差也往上調）\n\n偏差更新不乘 input，因為偏差對應的「輸入」永遠是 1。\n\n最後回傳 error 讓外面知道這次有沒有犯錯。"
           }
         ],
       },
@@ -891,19 +901,34 @@ console.log("隱藏層輸出:", h.map(v => v.toFixed(4)));
 console.log("最終輸出:", o.map(v => v.toFixed(4)));`,
         steps: [
           {
-            title: "Layer 類別：Xavier 初始化",
-            code: "constructor(inputSize, outputSize) {\n  const scale = Math.sqrt(2 / (inputSize + outputSize));\n  this.weights = Array.from({ length: outputSize }, () =>\n    Array.from({ length: inputSize }, () => (Math.random() * 2 - 1) * scale)\n  );\n  this.biases = new Array(outputSize).fill(0);\n}",
-            explanation: "建構子使用 Xavier 初始化：\n\n• scale = √(2 / (輸入數 + 輸出數))，確保權重不會太大或太小\n• weights 是二維陣列：外層代表輸出神經元，內層代表對應輸入的權重\n• 例如 Layer(2, 3) 會建立一個 3×2 的權重矩陣（3 個神經元，每個有 2 個權重）\n• biases 全部初始化為 0"
+            title: "步驟一：為什麼需要 Layer 類別？",
+            code: "class Layer {\n  constructor(inputSize, outputSize) {\n    // 這一層有 outputSize 個神經元\n    // 每個神經元接收 inputSize 個輸入\n  }\n}",
+            explanation: "到目前為止我們都是手動建立一個個神經元。但真正的神經網路有幾十甚至幾百萬個神經元，我們需要一種系統化的方式來管理它們。\n\nLayer（層）就是把一組神經元打包在一起：\n\n• inputSize — 這一層接收多少個輸入值（上一層有多少個神經元）\n• outputSize — 這一層有多少個神經元（每個都會產出一個值）\n\n舉例：Layer(2, 3) 代表「接收 2 個輸入、有 3 個神經元」的一層。"
           },
           {
-            title: "forward 方法：逐層計算",
-            code: "forward(inputs) {\n  this.lastInput = inputs;\n  this.lastOutput = this.weights.map((neuronWeights, i) => {\n    let sum = this.biases[i];\n    for (let j = 0; j < inputs.length; j++) {\n      sum += neuronWeights[j] * inputs[j];\n    }\n    return 1 / (1 + Math.exp(-sum));\n  });\n  return this.lastOutput;\n}",
-            explanation: "前向傳播的核心：\n\n1. 儲存 lastInput（之後反向傳播會用到）\n2. 對這一層的每個神經元：\n   - 先加上偏差\n   - 遍歷所有輸入，加上 input × weight\n   - 通過 Sigmoid 激活函數\n3. 回傳所有神經元的輸出\n\n如果這一層有 3 個神經元、2 個輸入，就會計算 3 次加權求和。"
+            title: "步驟二：Xavier 初始化權重",
+            code: "const scale = Math.sqrt(2 / (inputSize + outputSize));\nthis.weights = Array.from({ length: outputSize }, () =>\n  Array.from({ length: inputSize }, () => (Math.random() * 2 - 1) * scale)\n);",
+            explanation: "權重的初始化非常重要！如果全部是 0，所有神經元會學到一樣的東西（對稱性問題）。如果太大或太小，訊號會在傳播過程中爆炸或消失。\n\nXavier 初始化的原理：\n\n• scale = √(2 / (輸入數 + 輸出數))\n• 每個權重 = 隨機值（-1 到 1）× scale\n\n這個公式讓每一層的輸出方差大致等於輸入方差，確保訊號能穩定地傳遞。\n\n以 Layer(2, 3) 為例：\n• scale = √(2 / (2+3)) = √0.4 ≈ 0.632\n• weights 是一個 3×2 的矩陣（3 個神經元 × 2 個輸入權重）\n• 每個值大約在 -0.63 到 0.63 之間"
           },
           {
-            title: "串接兩層網路",
-            code: "const hidden = new Layer(2, 3);\nconst output = new Layer(3, 1);\n\nconst input = [0.5, 0.8];\nconst h = hidden.forward(input);\nconst o = output.forward(h);",
-            explanation: "我們建立了一個 2→3→1 的網路：\n\n• 輸入層：2 個值\n• 隱藏層：3 個神經元（接收 2 個輸入，產出 3 個值）\n• 輸出層：1 個神經元（接收 3 個輸入，產出 1 個值）\n\n資料流動：input [0.5, 0.8] → 隱藏層計算 → h [?, ?, ?] → 輸出層計算 → o [?]\n\n每次呼叫 forward 就是一次前向傳播，把上一層的輸出作為下一層的輸入。"
+            title: "步驟三：初始化偏差",
+            code: "this.biases = new Array(outputSize).fill(0);",
+            explanation: "每個神經元有一個偏差（bias），初始化為 0。\n\n• 偏差的數量 = 神經元的數量 = outputSize\n• 為什麼初始化為 0？因為權重已經隨機了，偏差從 0 開始就夠了，訓練時它會自動調整到合適的值。\n\n以 Layer(2, 3) 為例：\n• biases = [0, 0, 0]（3 個神經元各一個偏差）"
+          },
+          {
+            title: "步驟四：前向傳播 — 儲存輸入",
+            code: "forward(inputs) {\n  this.lastInput = inputs;  // 儲存！反向傳播需要",
+            explanation: "forward 方法接收輸入陣列，計算這一層所有神經元的輸出。\n\n第一步是 this.lastInput = inputs，把輸入存起來。\n\n為什麼要存？因為後面做反向傳播（學習）的時候，需要知道「當初輸入是什麼」才能計算梯度。如果不存，等到要學習的時候就拿不到了。\n\n這是前向傳播的一個重要模式：\n在計算的同時，把中間結果存下來供反向傳播使用。"
+          },
+          {
+            title: "步驟五：前向傳播 — 加權求和 + 激活",
+            code: "  this.lastOutput = this.weights.map((neuronWeights, i) => {\n    let sum = this.biases[i];\n    for (let j = 0; j < inputs.length; j++) {\n      sum += neuronWeights[j] * inputs[j];\n    }\n    return 1 / (1 + Math.exp(-sum)); // sigmoid\n  });\n  return this.lastOutput;\n}",
+            explanation: "這是每個神經元的核心計算，我們用 .map() 遍歷所有神經元：\n\nneuronWeights 是第 i 個神經元的權重陣列。計算過程：\n\n1. sum 先設為這個神經元的偏差 biases[i]\n2. 逐一把每個輸入 × 對應權重加進去\n3. 最後通過 Sigmoid 激活函數：1 / (1 + e^(-sum))\n\n以 Layer(2, 3) 為例，輸入 [0.5, 0.8]：\n• 神經元 0：sum = 0 + w[0][0]×0.5 + w[0][1]×0.8 → sigmoid\n• 神經元 1：sum = 0 + w[1][0]×0.5 + w[1][1]×0.8 → sigmoid\n• 神經元 2：sum = 0 + w[2][0]×0.5 + w[2][1]×0.8 → sigmoid\n\n結果：3 個數字的陣列，就是這一層的輸出。\n同樣存到 lastOutput 供反向傳播使用。"
+          },
+          {
+            title: "步驟六：串接兩層組成網路",
+            code: "const hidden = new Layer(2, 3); // 隱藏層\nconst output = new Layer(3, 1); // 輸出層\n\nconst input = [0.5, 0.8];\nconst h = hidden.forward(input); // 2 個值 → 3 個值\nconst o = output.forward(h);     // 3 個值 → 1 個值",
+            explanation: "現在我們把兩層串在一起，組成一個完整的網路！\n\n架構：2 → 3 → 1\n\n資料流動過程：\n\n1. input = [0.5, 0.8]（2 個輸入值）\n\n2. hidden.forward(input):\n   - 3 個神經元各自做加權求和 + sigmoid\n   - 產出 h = [?, ?, ?]（3 個值）\n\n3. output.forward(h):\n   - 1 個神經元接收上面的 3 個值\n   - 做加權求和 + sigmoid\n   - 產出 o = [?]（1 個值）\n\n關鍵概念：上一層的「輸出」就是下一層的「輸入」。\n這就是為什麼 hidden 的 outputSize (3) 必須等於 output 的 inputSize (3)。\n\n試著修改架構，例如 Layer(2, 4) + Layer(4, 2) 看看輸出怎麼變！"
           }
         ],
       },
@@ -1123,8 +1148,7 @@ console.log(forwardPass([1, 0.5]).toFixed(4));`,
 注意是「減去」梯度——因為梯度指向上坡方向，我們要往反方向（下坡）走。`,
       },
       {
-        type: "code",
-        language: "javascript",
+        type: "code-step",
         content: `// 損失函數比較
 function mse(predicted, actual) {
   let sum = 0;
@@ -1143,9 +1167,7 @@ function crossEntropy(predicted, actual) {
   return -sum / predicted.length;
 }
 
-// 比較不同預測的損失值
 const actual = [1, 0, 1, 0];
-
 const goodPred = [0.9, 0.1, 0.8, 0.2];
 const badPred  = [0.5, 0.5, 0.5, 0.5];
 const worsPred = [0.1, 0.9, 0.2, 0.8];
@@ -1162,7 +1184,23 @@ console.log("  CE:", crossEntropy(badPred, actual).toFixed(4));
 console.log("\\n差的預測:", worsPred);
 console.log("  MSE:", mse(worsPred, actual).toFixed(4));
 console.log("  CE:", crossEntropy(worsPred, actual).toFixed(4));`,
-        explanation: "這段程式碼比較了 MSE 和交叉熵在不同預測品質下的損失值。注意交叉熵對「非常自信但錯誤」的預測懲罰更重。",
+        steps: [
+          {
+            title: "步驟一：MSE 損失函數",
+            code: "function mse(predicted, actual) {\n  let sum = 0;\n  for (let i = 0; i < predicted.length; i++) {\n    sum += (predicted[i] - actual[i]) ** 2;\n  }\n  return sum / predicted.length;\n}",
+            explanation: "MSE（Mean Squared Error，均方誤差）是最直覺的損失函數。\n\n公式：MSE = (1/n) × Σ(predicted - actual)²\n\n步驟拆解：\n1. 計算每個預測值和真實值的差：predicted[i] - actual[i]\n2. 把差值取平方（消除正負號、放大大誤差）\n3. 把所有平方差加總\n4. 除以數量取平均\n\n手動算一下：\n  predicted = [0.9, 0.1], actual = [1, 0]\n  差：(0.9-1)=-0.1, (0.1-0)=0.1\n  平方：0.01, 0.01\n  平均：0.01\n\n特性：\n• 完美預測 → MSE = 0\n• 誤差均勻分布，不會特別懲罰某種錯誤"
+          },
+          {
+            title: "步驟二：交叉熵損失函數",
+            code: "function crossEntropy(predicted, actual) {\n  let sum = 0;\n  for (let i = 0; i < predicted.length; i++) {\n    const p = Math.max(1e-7, Math.min(1 - 1e-7, predicted[i]));\n    sum += actual[i] * Math.log(p)\n         + (1 - actual[i]) * Math.log(1 - p);\n  }\n  return -sum / predicted.length;\n}",
+            explanation: "交叉熵（Cross-Entropy）是分類問題的首選損失函數。\n\n公式：CE = -(1/n) × Σ[y×log(ŷ) + (1-y)×log(1-ŷ)]\n\n其中 y 是真實標籤（0 或 1），ŷ 是預測機率。\n\n為什麼用 log？\n• 當 actual=1 且 predicted≈1 時，log(1)=0，損失接近 0（好！）\n• 當 actual=1 且 predicted≈0 時，log(0)→-∞，損失爆炸（很差！）\n\n這個 Math.max / Math.min 是防護措施：\n• 把 p 限制在 [1e-7, 1-1e-7] 之間\n• 避免 log(0) 產生 -Infinity 導致程式崩潰\n\n交叉熵 vs MSE 的關鍵差異：\n交叉熵對「自信但錯誤」的預測懲罰非常重！\n例如預測 0.99 但實際是 0 → CE ≈ 4.6，而 MSE 只有 0.98"
+          },
+          {
+            title: "步驟三：比較三種預測品質",
+            code: "const actual   = [1, 0, 1, 0];\nconst goodPred = [0.9, 0.1, 0.8, 0.2]; // 好\nconst badPred  = [0.5, 0.5, 0.5, 0.5]; // 普通\nconst worsPred = [0.1, 0.9, 0.2, 0.8]; // 差\n\nconsole.log(\"好的預測 MSE:\", mse(goodPred, actual));\nconsole.log(\"好的預測 CE:\",  crossEntropy(goodPred, actual));",
+            explanation: "我們用三組不同品質的預測來比較兩種損失函數：\n\n真實值 actual = [1, 0, 1, 0]\n\n1. 好的預測 [0.9, 0.1, 0.8, 0.2]:\n   方向全對，且很自信\n   → MSE ≈ 0.025（低）\n   → CE ≈ 0.164（低）\n\n2. 普通預測 [0.5, 0.5, 0.5, 0.5]:\n   完全沒有區分能力（等於亂猜）\n   → MSE = 0.25\n   → CE ≈ 0.693（= log(2)，最大不確定性）\n\n3. 差的預測 [0.1, 0.9, 0.2, 0.8]:\n   方向全反！而且很自信地錯\n   → MSE ≈ 0.725\n   → CE ≈ 2.12（爆炸！比 MSE 的增幅大得多）\n\n結論：交叉熵對「自信地犯錯」的懲罰遠大於 MSE。\n這就是為什麼分類問題幾乎都用交叉熵作為損失函數。"
+          }
+        ],
       },
       {
         type: "quiz",
@@ -1307,8 +1345,7 @@ Sigmoid 函數 σ(x) 的導數有一個很優美的形式：
 這就是為什麼我們在前向傳播時要儲存每層的輸出——反向傳播要用！`,
       },
       {
-        type: "code",
-        language: "javascript",
+        type: "code-step",
         content: `// 完整的反向傳播示範
 function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
 function sigmoidDerivative(output) { return output * (1 - output); }
@@ -1339,11 +1376,9 @@ class SimpleNetwork {
   }
 
   backward(target) {
-    // 輸出層梯度
     const outputErrors = this.output.map((o, i) =>
       (o - target[i]) * sigmoidDerivative(o)
     );
-    // 隱藏層梯度（用鏈式法則往回傳）
     const hiddenErrors = this.hidden.map((h, i) => {
       let error = 0;
       for (let j = 0; j < outputErrors.length; j++) {
@@ -1351,14 +1386,12 @@ class SimpleNetwork {
       }
       return error * sigmoidDerivative(h);
     });
-    // 更新輸出層權重
     for (let i = 0; i < this.wOutput.length; i++) {
       for (let j = 0; j < this.hidden.length; j++) {
         this.wOutput[i][j] -= this.lr * outputErrors[i] * this.hidden[j];
       }
       this.bOutput[i] -= this.lr * outputErrors[i];
     }
-    // 更新隱藏層權重
     for (let i = 0; i < this.wHidden.length; i++) {
       for (let j = 0; j < this.input.length; j++) {
         this.wHidden[i][j] -= this.lr * hiddenErrors[i] * this.input[j];
@@ -1383,7 +1416,7 @@ const data = [
   { input: [1, 1], target: [0] },
 ];
 
-console.log("訓練 XOR（注意：2 層網路不一定能完全學會 XOR）");
+console.log("訓練 XOR");
 for (let epoch = 0; epoch < 5000; epoch++) {
   let totalLoss = 0;
   for (const d of data) totalLoss += net.train(d.input, d.target);
@@ -1395,7 +1428,129 @@ for (const d of data) {
   const pred = net.forward(d.input);
   console.log(\`[\${d.input}] → \${pred[0].toFixed(4)} (期望: \${d.target})\`);
 }`,
-        explanation: "這是一個完整的反向傳播實作。網路嘗試學習 XOR 問題，雖然只有一個隱藏層（2 個神經元）可能不夠解決 XOR，但能讓你看到損失如何隨訓練下降。",
+        steps: [
+          {
+            title: "步驟一：輔助函數 — Sigmoid 及其導數",
+            code: "function sigmoid(x) {\n  return 1 / (1 + Math.exp(-x));\n}\n\nfunction sigmoidDerivative(output) {\n  return output * (1 - output);\n}",
+            explanation: "反向傳播需要兩個數學工具：\n\n1. sigmoid(x) — 把任何數字壓縮到 0~1 之間\n   • sigmoid(0) = 0.5\n   • sigmoid(2) ≈ 0.88\n   • sigmoid(-2) ≈ 0.12\n\n2. sigmoidDerivative(output) — Sigmoid 的導數\n   • 公式：σ'(x) = σ(x) × (1 - σ(x))\n   • 注意！它接收的是 sigmoid 的「輸出值」，不是原始 x\n   • 例如：如果 output = 0.7，導數 = 0.7 × 0.3 = 0.21\n\n導數告訴我們：如果輸入稍微變一點，輸出會變多少。\n這是鏈式法則的核心材料。\n\n導數最大值在 output = 0.5 時（= 0.25），在兩端趨近 0。\n這也是 Sigmoid 的缺點 — 遠離中心時梯度消失。"
+          },
+          {
+            title: "步驟二：網路結構 — 2→2→1",
+            code: "class SimpleNetwork {\n  constructor() {\n    // 隱藏層：2 個神經元，每個接收 2 個輸入\n    this.wHidden = [[0.5, -0.3], [0.2, 0.8]];\n    this.bHidden = [0.1, -0.1];\n\n    // 輸出層：1 個神經元，接收 2 個輸入\n    this.wOutput = [[0.6, -0.4]];\n    this.bOutput = [0.2];\n\n    this.lr = 0.5; // 學習率\n  }\n}",
+            explanation: "我們手動設定一個小網路的初始權重，這樣你能清楚追蹤每個數字的變化。\n\n網路結構：\n  輸入(2) → 隱藏層(2) → 輸出層(1)\n\n隱藏層權重矩陣 wHidden (2×2)：\n  神經元 0 的權重：[0.5, -0.3]（第一個輸入重要，第二個有抑制）\n  神經元 1 的權重：[0.2, 0.8]（第二個輸入更重要）\n\n隱藏層偏差 bHidden：[0.1, -0.1]\n\n輸出層權重 wOutput (1×2)：\n  唯一的神經元：[0.6, -0.4]（隱藏神經元 0 的貢獻大，神經元 1 有抑制）\n\n學習率 lr = 0.5（比較大，讓學習效果明顯）"
+          },
+          {
+            title: "步驟三：前向傳播 — 計算預測值",
+            code: "forward(input) {\n  this.input = input; // 存起來！\n\n  // 隱藏層計算\n  this.hidden = this.wHidden.map((w, i) => {\n    let sum = this.bHidden[i];\n    for (let j = 0; j < input.length; j++)\n      sum += w[j] * input[j];\n    return sigmoid(sum);\n  });\n\n  // 輸出層計算\n  this.output = this.wOutput.map((w, i) => {\n    let sum = this.bOutput[i];\n    for (let j = 0; j < this.hidden.length; j++)\n      sum += w[j] * this.hidden[j];\n    return sigmoid(sum);\n  });\n\n  return this.output;\n}",
+            explanation: "前向傳播是「正向計算」的過程。\n\n以 input = [1, 0] 為例，手動算一遍：\n\n隱藏層神經元 0：\n  sum = 0.1 + 0.5×1 + (-0.3)×0 = 0.6\n  output = sigmoid(0.6) = 0.646\n\n隱藏層神經元 1：\n  sum = -0.1 + 0.2×1 + 0.8×0 = 0.1\n  output = sigmoid(0.1) = 0.525\n\nhidden = [0.646, 0.525]\n\n輸出層神經元 0：\n  sum = 0.2 + 0.6×0.646 + (-0.4)×0.525 = 0.378\n  output = sigmoid(0.378) = 0.593\n\n預測 = [0.593]，但 XOR(1,0) 的正確答案是 1。\n差距 = 0.593 - 1 = -0.407，需要調整！\n\n注意：我們存了 input、hidden、output，後面反向傳播全部要用。"
+          },
+          {
+            title: "步驟四：反向傳播 — 輸出層梯度",
+            code: "backward(target) {\n  // 輸出層梯度 = (預測 - 真實) × sigmoid導數\n  const outputErrors = this.output.map((o, i) =>\n    (o - target[i]) * sigmoidDerivative(o)\n  );",
+            explanation: "反向傳播從輸出層開始，先算「這一層的錯誤有多大」。\n\n公式：δ_output = (預測值 - 目標值) × sigmoid'(預測值)\n\n兩個部分：\n1. (o - target[i]) — 預測和真實的差距（方向和大小）\n2. sigmoidDerivative(o) — 這個神經元對輸入變化的敏感度\n\n以剛才的例子：\n  o = 0.593, target = 1\n  δ = (0.593 - 1) × sigmoidDerivative(0.593)\n    = -0.407 × 0.593 × (1 - 0.593)\n    = -0.407 × 0.241\n    = -0.098\n\n負號代表「需要增加輸出」（因為預測太小了）。\n\n這個 δ 值就是從輸出層往回傳的「錯誤信號」。"
+          },
+          {
+            title: "步驟五：反向傳播 — 隱藏層梯度（鏈式法則）",
+            code: "  // 隱藏層梯度 = Σ(輸出層梯度 × 連接權重) × sigmoid導數\n  const hiddenErrors = this.hidden.map((h, i) => {\n    let error = 0;\n    for (let j = 0; j < outputErrors.length; j++) {\n      error += outputErrors[j] * this.wOutput[j][i];\n    }\n    return error * sigmoidDerivative(h);\n  });",
+            explanation: "這是鏈式法則的精華！隱藏層不直接知道「正確答案」，它的錯誤信號是從輸出層「反向傳回來」的。\n\n對隱藏神經元 i：\n  1. 把所有輸出層的 δ × 連接到自己的權重 加總\n     （如果多個輸出神經元連到它，每個都有貢獻）\n  2. 再乘以自己的 sigmoid 導數\n\n直覺理解：\n• 如果這個隱藏神經元的權重很大（wOutput 大），它對輸出的影響大，所以「責任」也大\n• 如果 sigmoid 導數接近 0（輸出接近 0 或 1），那這個神經元幾乎「飽和」了，調整它也沒什麼用\n\n鏈式法則讓梯度一層一層往回傳，每個神經元都能知道自己「該負多少責任」。"
+          },
+          {
+            title: "步驟六：更新所有權重",
+            code: "  // 更新輸出層\n  for (let i = 0; i < this.wOutput.length; i++) {\n    for (let j = 0; j < this.hidden.length; j++) {\n      this.wOutput[i][j] -= this.lr * outputErrors[i] * this.hidden[j];\n    }\n    this.bOutput[i] -= this.lr * outputErrors[i];\n  }\n\n  // 更新隱藏層\n  for (let i = 0; i < this.wHidden.length; i++) {\n    for (let j = 0; j < this.input.length; j++) {\n      this.wHidden[i][j] -= this.lr * hiddenErrors[i] * this.input[j];\n    }\n    this.bHidden[i] -= this.lr * hiddenErrors[i];\n  }\n}",
+            explanation: "有了每層的梯度，就能用梯度下降更新所有權重了！\n\n更新公式：\n  w_new = w_old - lr × δ × input_to_this_weight\n\n三個因素：\n• lr（學習率）— 控制步伐大小\n• δ（這一層的梯度）— 方向和幅度\n• input_to_this_weight — 貢獻了多少輸入\n\n為什麼要乘以 input？因為如果某個輸入是 0，那對應的權重根本沒參與計算，調它也沒用。輸入越大，權重對結果的影響越大，所以調整幅度也應該越大。\n\n偏差的更新更簡單：b -= lr × δ\n（偏差不乘以 input，因為偏差的「輸入」永遠是 1）\n\n完成！一次反向傳播就是：\n前向傳播 → 計算輸出梯度 → 往回傳到隱藏層 → 更新所有權重"
+          },
+          {
+            title: "步驟七：訓練循環 — 反覆學習",
+            code: "const net = new SimpleNetwork();\nconst data = [\n  { input: [0, 0], target: [0] },\n  { input: [0, 1], target: [1] },\n  { input: [1, 0], target: [1] },\n  { input: [1, 1], target: [0] },\n];\n\nfor (let epoch = 0; epoch < 5000; epoch++) {\n  let totalLoss = 0;\n  for (const d of data)\n    totalLoss += net.train(d.input, d.target);\n}",
+            explanation: "一次前向+反向傳播只能微調一點點。要讓網路真正學會，需要重複訓練很多次（epoch）。\n\n每個 epoch 的流程：\n1. 遍歷所有訓練資料\n2. 對每筆資料做 forward + backward + 更新權重\n3. 累加損失值以追蹤學習進度\n\ntrain() 方法就是把 forward() 和 backward() 包在一起：\n  train(input, target) {\n    this.forward(input);\n    this.backward(target);\n    return loss;\n  }\n\n5000 個 epoch 後，如果學習率和架構合適，損失應該會顯著下降。\n\n注意：XOR 是非線性問題，2 個隱藏神經元有時候能學會，有時候會卡在局部最小值。這就是為什麼深度學習需要更多技巧（更好的初始化、優化器等）。"
+          }
+        ],
+      },
+      {
+        type: "code",
+        language: "javascript",
+        content: `// 完整的反向傳播示範 — 可以執行
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function sigmoidDerivative(output) { return output * (1 - output); }
+
+class SimpleNetwork {
+  constructor() {
+    this.wHidden = [[0.5, -0.3], [0.2, 0.8]];
+    this.bHidden = [0.1, -0.1];
+    this.wOutput = [[0.6, -0.4]];
+    this.bOutput = [0.2];
+    this.lr = 0.5;
+  }
+
+  forward(input) {
+    this.input = input;
+    this.hidden = this.wHidden.map((w, i) => {
+      let sum = this.bHidden[i];
+      for (let j = 0; j < input.length; j++) sum += w[j] * input[j];
+      return sigmoid(sum);
+    });
+    this.output = this.wOutput.map((w, i) => {
+      let sum = this.bOutput[i];
+      for (let j = 0; j < this.hidden.length; j++) sum += w[j] * this.hidden[j];
+      return sigmoid(sum);
+    });
+    return this.output;
+  }
+
+  backward(target) {
+    const outputErrors = this.output.map((o, i) =>
+      (o - target[i]) * sigmoidDerivative(o)
+    );
+    const hiddenErrors = this.hidden.map((h, i) => {
+      let error = 0;
+      for (let j = 0; j < outputErrors.length; j++) {
+        error += outputErrors[j] * this.wOutput[j][i];
+      }
+      return error * sigmoidDerivative(h);
+    });
+    for (let i = 0; i < this.wOutput.length; i++) {
+      for (let j = 0; j < this.hidden.length; j++) {
+        this.wOutput[i][j] -= this.lr * outputErrors[i] * this.hidden[j];
+      }
+      this.bOutput[i] -= this.lr * outputErrors[i];
+    }
+    for (let i = 0; i < this.wHidden.length; i++) {
+      for (let j = 0; j < this.input.length; j++) {
+        this.wHidden[i][j] -= this.lr * hiddenErrors[i] * this.input[j];
+      }
+      this.bHidden[i] -= this.lr * hiddenErrors[i];
+    }
+  }
+
+  train(input, target) {
+    this.forward(input);
+    this.backward(target);
+    const loss = this.output.reduce((s, o, i) => s + (o - target[i]) ** 2, 0) / 2;
+    return loss;
+  }
+}
+
+const net = new SimpleNetwork();
+const data = [
+  { input: [0, 0], target: [0] },
+  { input: [0, 1], target: [1] },
+  { input: [1, 0], target: [1] },
+  { input: [1, 1], target: [0] },
+];
+
+console.log("訓練 XOR");
+for (let epoch = 0; epoch < 5000; epoch++) {
+  let totalLoss = 0;
+  for (const d of data) totalLoss += net.train(d.input, d.target);
+  if (epoch % 1000 === 0) console.log(\`Epoch \${epoch}, Loss: \${totalLoss.toFixed(4)}\`);
+}
+
+console.log("\\n最終預測：");
+for (const d of data) {
+  const pred = net.forward(d.input);
+  console.log(\`[\${d.input}] → \${pred[0].toFixed(4)} (期望: \${d.target})\`);
+}`,
+        explanation: "這是上面逐步解析的完整可執行版本。點擊「執行」看看 XOR 的訓練過程！觀察損失值如何隨 epoch 下降，以及最終預測是否接近正確答案。",
       },
       {
         type: "quiz",
