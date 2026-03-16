@@ -2,24 +2,26 @@
 
 import { useEffect, useRef } from "react";
 
-// 3D grid node on a wavy surface
-interface Node3D {
+interface Neuron {
   x: number;
   y: number;
-  z: number;
-  baseZ: number;
-  // projected
-  sx: number;
-  sy: number;
-  size: number;
-  alpha: number;
+  r: number;
+  pulse: number;
+  pulseSpeed: number;
+  connections: number[];
+}
+
+interface Signal {
+  from: number;
+  to: number;
+  progress: number;
+  speed: number;
+  color: number; // 0=primary, 1=cyan, 2=accent
 }
 
 export function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animId = useRef(0);
-  const mouse = useRef({ x: 0.5, y: 0.5 });
-  const time = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,33 +31,77 @@ export function ParticleBackground() {
 
     let w = 0;
     let h = 0;
+    const neurons: Neuron[] = [];
+    const signals: Signal[] = [];
 
-    // Grid parameters
-    const cols = 48;
-    const rows = 28;
-    const spacing = 40;
+    const signalColors = [
+      [99, 102, 241],   // indigo
+      [34, 211, 238],   // cyan
+      [244, 114, 182],  // pink
+    ];
 
-    // 3D grid of nodes
-    const nodes: Node3D[] = [];
+    const init = () => {
+      neurons.length = 0;
+      signals.length = 0;
 
-    const initGrid = () => {
-      nodes.length = 0;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const x = (c - cols / 2) * spacing;
-          const y = (r - rows / 2) * spacing;
-          nodes.push({
-            x,
-            y,
-            z: 0,
-            baseZ: 0,
-            sx: 0,
-            sy: 0,
-            size: 0,
-            alpha: 0,
-          });
+      // Scatter neurons across the full page area
+      const area = w * h;
+      const count = Math.min(Math.floor(area / 22000), 140);
+
+      for (let i = 0; i < count; i++) {
+        neurons.push({
+          x: Math.random() * w,
+          y: Math.random() * h * 3, // cover scrollable area
+          r: Math.random() * 2 + 1.2,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: Math.random() * 0.015 + 0.005,
+          connections: [],
+        });
+      }
+
+      // Build connections: each neuron connects to 2-4 nearest neighbors
+      const maxDist = Math.min(w, h) * 0.28;
+      for (let i = 0; i < neurons.length; i++) {
+        const dists: { idx: number; d: number }[] = [];
+        for (let j = 0; j < neurons.length; j++) {
+          if (i === j) continue;
+          const dx = neurons[i].x - neurons[j].x;
+          const dy = neurons[i].y - neurons[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < maxDist) {
+            dists.push({ idx: j, d });
+          }
+        }
+        dists.sort((a, b) => a.d - b.d);
+        const connCount = Math.min(dists.length, Math.floor(Math.random() * 3) + 2);
+        for (let k = 0; k < connCount; k++) {
+          const j = dists[k].idx;
+          if (!neurons[i].connections.includes(j)) {
+            neurons[i].connections.push(j);
+          }
+          if (!neurons[j].connections.includes(i)) {
+            neurons[j].connections.push(i);
+          }
         }
       }
+    };
+
+    const spawnSignal = () => {
+      if (neurons.length === 0) return;
+      // Pick a random neuron that has connections
+      const candidates = neurons.filter((n) => n.connections.length > 0);
+      if (candidates.length === 0) return;
+      const src = candidates[Math.floor(Math.random() * candidates.length)];
+      const srcIdx = neurons.indexOf(src);
+      const tgtIdx = src.connections[Math.floor(Math.random() * src.connections.length)];
+
+      signals.push({
+        from: srcIdx,
+        to: tgtIdx,
+        progress: 0,
+        speed: Math.random() * 0.008 + 0.004,
+        color: Math.random() < 0.6 ? 0 : Math.random() < 0.7 ? 1 : 2,
+      });
     };
 
     const resize = () => {
@@ -67,162 +113,158 @@ export function ParticleBackground() {
       canvas.style.width = w + "px";
       canvas.style.height = h + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      init();
     };
 
-    const onMouse = (e: MouseEvent) => {
-      mouse.current.x = e.clientX / w;
-      mouse.current.y = e.clientY / h;
-    };
-
-    initGrid();
     resize();
     window.addEventListener("resize", resize);
-    window.addEventListener("mousemove", onMouse);
 
-    // Perspective projection
-    const fov = 600;
-    const cameraHeight = 280;
-    const tilt = 0.65; // how much the surface is tilted toward viewer
-
-    const project = (node: Node3D, t: number) => {
-      // Rotate so we look at the surface from above-front angle
-      const cosT = Math.cos(tilt);
-      const sinT = Math.sin(tilt);
-
-      // Slight horizontal rotation following mouse
-      const mouseOffsetX = (mouse.current.x - 0.5) * 0.15;
-      const cosM = Math.cos(mouseOffsetX);
-      const sinM = Math.sin(mouseOffsetX);
-
-      // Wave displacement
-      const wave1 = Math.sin(node.x * 0.008 + t * 0.6) * Math.cos(node.y * 0.006 + t * 0.4) * 35;
-      const wave2 = Math.sin(node.x * 0.015 - t * 0.3) * Math.sin(node.y * 0.012 + t * 0.5) * 18;
-      const wave3 = Math.cos((node.x + node.y) * 0.005 + t * 0.2) * 12;
-
-      // Mouse ripple
-      const mx3d = (mouse.current.x - 0.5) * cols * spacing;
-      const my3d = (mouse.current.y - 0.5) * rows * spacing * 0.5;
-      const mdx = node.x - mx3d;
-      const mdy = node.y - my3d;
-      const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-      const ripple = mDist < 300 ? Math.sin(mDist * 0.03 - t * 3) * (1 - mDist / 300) * 25 : 0;
-
-      node.z = wave1 + wave2 + wave3 + ripple;
-
-      // Apply horizontal mouse rotation
-      const rx = node.x * cosM - node.y * sinM;
-      const ry = node.x * sinM + node.y * cosM;
-
-      // Apply tilt rotation (around X axis)
-      const ry2 = ry * cosT - node.z * sinT;
-      const rz = ry * sinT + node.z * cosT + cameraHeight;
-
-      // Perspective divide
-      if (rz <= 10) {
-        node.alpha = 0;
-        return;
+    // Spawn signals periodically
+    const signalInterval = setInterval(() => {
+      // Keep ~15-25 signals alive
+      const toSpawn = Math.floor(Math.random() * 3) + 1;
+      for (let i = 0; i < toSpawn; i++) {
+        if (signals.length < 30) spawnSignal();
       }
-
-      const scale = fov / rz;
-      node.sx = w / 2 + rx * scale;
-      node.sy = h * 0.55 + ry2 * scale;
-      node.size = Math.max(0.5, 2.5 * scale);
-
-      // Depth-based alpha: closer = brighter
-      const depthAlpha = Math.max(0, Math.min(1, 1 - (rz - 100) / 900));
-      node.alpha = depthAlpha * depthAlpha;
-    };
+    }, 300);
 
     const draw = () => {
-      time.current += 0.008;
-      const t = time.current;
-
       ctx.clearRect(0, 0, w, h);
 
-      // Update all node projections
-      for (const node of nodes) {
-        project(node, t);
-      }
+      // Scroll offset for parallax
+      const scrollY = typeof window !== "undefined" ? window.scrollY * 0.3 : 0;
 
-      // Draw connections (lines between grid neighbors)
-      ctx.lineWidth = 0.6;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const idx = r * cols + c;
-          const n = nodes[idx];
-          if (n.alpha < 0.01) continue;
+      // Draw connections (static lines)
+      const drawn = new Set<string>();
+      for (let i = 0; i < neurons.length; i++) {
+        const n = neurons[i];
+        const ny = n.y - scrollY;
 
-          // Right neighbor
-          if (c < cols - 1) {
-            const nb = nodes[idx + 1];
-            if (nb.alpha > 0.01) {
-              const a = Math.min(n.alpha, nb.alpha) * 0.25;
-              ctx.beginPath();
-              ctx.moveTo(n.sx, n.sy);
-              ctx.lineTo(nb.sx, nb.sy);
-              ctx.strokeStyle = `rgba(99, 102, 241, ${a})`;
-              ctx.stroke();
-            }
-          }
+        for (const j of n.connections) {
+          const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+          if (drawn.has(key)) continue;
+          drawn.add(key);
 
-          // Bottom neighbor
-          if (r < rows - 1) {
-            const nb = nodes[idx + cols];
-            if (nb.alpha > 0.01) {
-              const a = Math.min(n.alpha, nb.alpha) * 0.25;
-              ctx.beginPath();
-              ctx.moveTo(n.sx, n.sy);
-              ctx.lineTo(nb.sx, nb.sy);
-              ctx.strokeStyle = `rgba(99, 102, 241, ${a})`;
-              ctx.stroke();
-            }
-          }
+          const m = neurons[j];
+          const my = m.y - scrollY;
 
-          // Diagonal (bottom-right) for triangular mesh
-          if (c < cols - 1 && r < rows - 1) {
-            const nb = nodes[idx + cols + 1];
-            if (nb.alpha > 0.01) {
-              const a = Math.min(n.alpha, nb.alpha) * 0.12;
-              ctx.beginPath();
-              ctx.moveTo(n.sx, n.sy);
-              ctx.lineTo(nb.sx, nb.sy);
-              ctx.strokeStyle = `rgba(34, 211, 238, ${a})`;
-              ctx.stroke();
-            }
-          }
+          // Skip if both off screen
+          if ((ny < -50 && my < -50) || (ny > h + 50 && my > h + 50)) continue;
+
+          ctx.beginPath();
+          ctx.moveTo(n.x, ny);
+          ctx.lineTo(m.x, my);
+          ctx.strokeStyle = "rgba(99, 102, 241, 0.06)";
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
         }
       }
 
-      // Draw nodes (back to front already by row order with tilt)
-      for (const n of nodes) {
-        if (n.alpha < 0.02) continue;
+      // Draw signals
+      for (let i = signals.length - 1; i >= 0; i--) {
+        const sig = signals[i];
+        sig.progress += sig.speed;
 
-        // Outer glow
-        const glowR = n.size * 5;
-        const grad = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, glowR);
-        grad.addColorStop(0, `rgba(99, 102, 241, ${n.alpha * 0.12})`);
-        grad.addColorStop(0.5, `rgba(34, 211, 238, ${n.alpha * 0.04})`);
-        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(n.sx - glowR, n.sy - glowR, glowR * 2, glowR * 2);
+        if (sig.progress >= 1) {
+          // Chain reaction: sometimes the signal continues to the next neuron
+          const arrived = neurons[sig.to];
+          if (Math.random() < 0.45 && arrived.connections.length > 1) {
+            // Pick a different connection
+            const nextOptions = arrived.connections.filter((c) => c !== sig.from);
+            if (nextOptions.length > 0) {
+              const next = nextOptions[Math.floor(Math.random() * nextOptions.length)];
+              signals[i] = {
+                from: sig.to,
+                to: next,
+                progress: 0,
+                speed: sig.speed * (0.9 + Math.random() * 0.2),
+                color: sig.color,
+              };
+              // Pulse the arrived neuron
+              arrived.pulse = 0;
+              continue;
+            }
+          }
+          // Pulse the arrived neuron
+          arrived.pulse = 0;
+          signals.splice(i, 1);
+          continue;
+        }
 
-        // Core dot
+        const fromN = neurons[sig.from];
+        const toN = neurons[sig.to];
+        const fy = fromN.y - scrollY;
+        const ty = toN.y - scrollY;
+
+        // Skip if off screen
+        if (fy < -50 && ty < -50) continue;
+        if (fy > h + 50 && ty > h + 50) continue;
+
+        const sx = fromN.x + (toN.x - fromN.x) * sig.progress;
+        const sy = fy + (ty - fy) * sig.progress;
+
+        const [cr, cg, cb] = signalColors[sig.color];
+
+        // Signal trail (glowing line segment)
+        const trailLen = 0.15;
+        const trailStart = Math.max(0, sig.progress - trailLen);
+        const tsx = fromN.x + (toN.x - fromN.x) * trailStart;
+        const tsy = fy + (ty - fy) * trailStart;
+
+        const grad = ctx.createLinearGradient(tsx, tsy, sx, sy);
+        grad.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+        grad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0.5)`);
         ctx.beginPath();
-        ctx.arc(n.sx, n.sy, n.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(180, 190, 255, ${n.alpha * 0.8})`;
+        ctx.moveTo(tsx, tsy);
+        ctx.lineTo(sx, sy);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Signal head glow
+        const headGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, 12);
+        headGrad.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, 0.6)`);
+        headGrad.addColorStop(0.4, `rgba(${cr}, ${cg}, ${cb}, 0.15)`);
+        headGrad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+        ctx.fillStyle = headGrad;
+        ctx.fillRect(sx - 12, sy - 12, 24, 24);
+
+        // Bright head dot
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, 0.9)`;
         ctx.fill();
       }
 
-      // Top ambient glow (like the image's background light)
-      const ambientGrad = ctx.createRadialGradient(
-        w * 0.5, h * 0.15, 0,
-        w * 0.5, h * 0.15, h * 0.6
-      );
-      ambientGrad.addColorStop(0, "rgba(99, 102, 241, 0.04)");
-      ambientGrad.addColorStop(0.4, "rgba(34, 211, 238, 0.015)");
-      ambientGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = ambientGrad;
-      ctx.fillRect(0, 0, w, h);
+      // Draw neurons
+      for (const n of neurons) {
+        const ny = n.y - scrollY;
+        if (ny < -30 || ny > h + 30) continue;
+
+        n.pulse += n.pulseSpeed;
+        const pulseAlpha = 0.15 + Math.sin(n.pulse) * 0.1;
+        const clampedAlpha = Math.max(0.05, Math.min(0.6, pulseAlpha));
+
+        // When pulse is near 0 (just fired), show bright flash
+        const fireFlash = n.pulse < 0.5 ? (0.5 - n.pulse) * 1.2 : 0;
+        const totalAlpha = Math.min(1, clampedAlpha + fireFlash);
+
+        // Outer glow
+        if (totalAlpha > 0.15) {
+          const glowGrad = ctx.createRadialGradient(n.x, ny, 0, n.x, ny, n.r * 8);
+          glowGrad.addColorStop(0, `rgba(99, 102, 241, ${totalAlpha * 0.2})`);
+          glowGrad.addColorStop(0.5, `rgba(99, 102, 241, ${totalAlpha * 0.05})`);
+          glowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = glowGrad;
+          ctx.fillRect(n.x - n.r * 8, ny - n.r * 8, n.r * 16, n.r * 16);
+        }
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(n.x, ny, n.r * (1 + fireFlash * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 190, 255, ${totalAlpha})`;
+        ctx.fill();
+      }
 
       animId.current = requestAnimationFrame(draw);
     };
@@ -231,8 +273,8 @@ export function ParticleBackground() {
 
     return () => {
       cancelAnimationFrame(animId.current);
+      clearInterval(signalInterval);
       window.removeEventListener("resize", resize);
-      window.removeEventListener("mousemove", onMouse);
     };
   }, []);
 
