@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProgressBadge } from "@/components/ChapterProgress";
 
 const chapters = [
   { id: 1, title: "什麼是神經網路？", desc: "從生物神經元到人工神經元的基礎概念", icon: "🧠", topics: ["生物神經元", "人工神經元", "權重與偏差", "網路結構"] },
@@ -46,6 +47,7 @@ export default function TutorialsPage() {
                       從這裡開始
                     </span>
                   )}
+                  <ProgressBadge chapterId={ch.id} />
                 </div>
                 <h2 className="text-xl font-semibold mb-1 group-hover:text-[var(--primary-light)] transition-colors">
                   {ch.title}

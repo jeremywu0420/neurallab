@@ -273,20 +273,74 @@ function findPrevToken(tokens: Token[]): Token | null {
   return null;
 }
 
+// Copy button component
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-md text-xs transition-all z-10"
+      style={{
+        background: copied ? "rgba(52, 211, 153, 0.15)" : "rgba(255,255,255,0.05)",
+        color: copied ? "rgb(52, 211, 153)" : "rgba(255,255,255,0.3)",
+        border: `1px solid ${copied ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
+      }}
+      title="複製程式碼"
+    >
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 // Render highlighted code as React elements
 export function HighlightedCode({ code, className = "" }: { code: string; className?: string }) {
   const tokens = tokenize(code);
 
   return (
-    <pre className={`text-sm font-mono leading-[1.7] overflow-x-auto ${className}`}>
-      <code>
-        {tokens.map((token, i) => (
-          <span key={i} style={{ color: TOKEN_COLORS[token.type] }}>
-            {token.value}
-          </span>
-        ))}
-      </code>
-    </pre>
+    <div className="relative group">
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <CopyButton text={code} />
+      </div>
+      <pre className={`text-sm font-mono leading-[1.7] overflow-x-auto ${className}`}>
+        <code>
+          {tokens.map((token, i) => (
+            <span key={i} style={{ color: TOKEN_COLORS[token.type] }}>
+              {token.value}
+            </span>
+          ))}
+        </code>
+      </pre>
+    </div>
   );
 }
 
